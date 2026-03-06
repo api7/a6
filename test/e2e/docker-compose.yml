@@ -1,0 +1,43 @@
+services:
+  apisix:
+    image: apache/apisix:${APISIX_DOCKER_TAG:-3.11.0-debian}
+    restart: always
+    volumes:
+      - ./apisix_conf/config-docker.yaml:/usr/local/apisix/conf/config.yaml:ro
+    depends_on:
+      etcd:
+        condition: service_healthy
+    ports:
+      - "9180:9180"
+      - "9080:9080"
+    networks:
+      - a6-test
+
+  etcd:
+    image: bitnamilegacy/etcd:3.6
+    restart: always
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: "http://etcd:2379"
+      ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+    ports:
+      - "2379:2379"
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - a6-test
+
+  httpbin:
+    image: ghcr.io/mccutchen/go-httpbin
+    restart: always
+    ports:
+      - "8080:8080"
+    networks:
+      - a6-test
+
+networks:
+  a6-test:
+    driver: bridge

@@ -21,14 +21,19 @@ List of project documents and their specific purpose:
 | `docs/adr/001-tech-stack.md` | Architecture decisions, project structure, patterns | Before writing any code |
 | `docs/golden-example.md` | Complete `route list` implementation as template | When adding any new command |
 | `docs/coding-standards.md` | Go style, naming, formatting conventions | Before writing code |
-| `docs/testing-strategy.md` | Test patterns, mocking, fixtures | Before writing tests |
+| `docs/testing-strategy.md` | Test patterns, mocking, fixtures, e2e testing | Before writing tests |
 | `docs/documentation-maintenance.md` | Doc update rules | After any code change |
+| `.github/workflows/ci.yml` | Unit test + lint CI workflow | When modifying CI |
+| `.github/workflows/e2e.yml` | E2E test CI with real APISIX | When modifying e2e infrastructure |
 
 ### Project Structure
 Project directory tree with annotations:
 
 ```
 a6/
+├── .github/workflows/             # CI/CD workflows
+│   ├── ci.yml                     # Unit test + lint on push/PR
+│   └── e2e.yml                    # E2E tests with real APISIX
 ├── cmd/a6/main.go                 # Entry point
 ├── pkg/cmd/                       # All command implementations
 │   ├── root/root.go              # Root command
@@ -50,8 +55,13 @@ a6/
 ├── internal/config/               # Configuration/context management
 ├── internal/version/              # Build version info
 ├── docs/                          # All documentation
-├── test/fixtures/                 # JSON fixtures for tests
-└── Makefile                       # Build, test, lint commands
+├── test/fixtures/                 # JSON fixtures for unit tests
+├── test/e2e/                      # End-to-end tests
+│   ├── setup_test.go             # TestMain, binary build, helpers
+│   ├── smoke_test.go             # Smoke tests (APISIX reachable)
+│   ├── docker-compose.yml        # Local dev docker-compose
+│   └── apisix_conf/              # APISIX config files for testing
+└── Makefile                       # Build, test, lint, docker commands
 ```
 
 ### Key Architecture Patterns
@@ -77,13 +87,42 @@ Follow these steps when adding a new command, such as `a6 upstream list`:
 ### Common Commands
 ```bash
 make build          # Build binary to ./bin/a6
-make test           # Run all tests
+make test           # Run all tests (unit only, excludes e2e)
 make test-verbose   # Run tests with verbose output
+make test-e2e       # Run e2e tests (requires running APISIX)
 make lint           # Run golangci-lint
 make fmt            # Format code
 make check          # Run all checks (fmt + vet + lint + test)
 make clean          # Remove build artifacts
+make docker-up      # Start local APISIX stack for e2e development
+make docker-down    # Stop local APISIX stack
 ```
+
+### E2E Testing
+E2E tests run against a real APISIX instance. They use the `//go:build e2e` build tag and live in `test/e2e/`.
+
+**Local development:**
+```bash
+make docker-up      # Start etcd + APISIX + httpbin
+make test-e2e       # Run e2e tests
+make docker-down    # Tear down
+```
+
+**CI**: The `.github/workflows/e2e.yml` workflow runs etcd as a service container, starts APISIX and httpbin via `docker run`, and runs tests against `127.0.0.1`.
+
+**Key files:**
+- `test/e2e/setup_test.go` — TestMain (builds binary, health check, helpers)
+- `test/e2e/smoke_test.go` — Smoke tests verifying APISIX is reachable
+- `test/e2e/apisix_conf/config.yaml` — APISIX config for CI (etcd at `127.0.0.1:2379`)
+- `test/e2e/apisix_conf/config-docker.yaml` — APISIX config for docker-compose (etcd at `etcd:2379`)
+- `test/e2e/docker-compose.yml` — Local docker-compose stack
+
+**Environment variables (for e2e tests):**
+| Variable | Default | Purpose |
+|---|---|---|
+| `APISIX_ADMIN_URL` | `http://127.0.0.1:9180` | Admin API base URL |
+| `APISIX_GATEWAY_URL` | `http://127.0.0.1:9080` | Data plane base URL |
+| `HTTPBIN_URL` | `http://127.0.0.1:8080` | httpbin upstream URL |
 
 ### Code Style Rules
 - Follow `gofmt` and `goimports`.

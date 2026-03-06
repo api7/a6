@@ -1,0 +1,93 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  APISIX_ADMIN_URL: http://127.0.0.1:9180
+  APISIX_GATEWAY_URL: http://127.0.0.1:9080
+  HTTPBIN_URL: http://127.0.0.1:8080
+  APISIX_ADMIN_KEY: edd1c9f034335f136f87ad84b625c8f1
+
+jobs:
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+
+    services:
+      etcd:
+        image: bitnamilegacy/etcd:3.6
+        ports:
+          - 2379:2379
+        env:
+          ALLOW_NONE_AUTHENTICATION: "yes"
+          ETCD_ADVERTISE_CLIENT_URLS: "http://0.0.0.0:2379"
+          ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+        options: >-
+          --health-cmd "etcdctl endpoint health"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Start APISIX
+        run: |
+          docker run -d --name apisix \
+            --network host \
+            -v ${{ github.workspace }}/test/e2e/apisix_conf/config.yaml:/usr/local/apisix/conf/config.yaml:ro \
+            apache/apisix:3.11.0-debian
+          # config.yaml uses etcd at 127.0.0.1:2379 which is the service container
+
+      - name: Start httpbin
+        run: |
+          docker run -d --name httpbin \
+            -p 8080:8080 \
+            ghcr.io/mccutchen/go-httpbin
+
+      - name: Wait for APISIX
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:9180/apisix/admin/routes \
+              -H "X-API-KEY: $APISIX_ADMIN_KEY" > /dev/null 2>&1; then
+              echo "APISIX is ready"
+              exit 0
+            fi
+            echo "Waiting for APISIX... ($i/30)"
+            sleep 2
+          done
+          echo "APISIX failed to start"
+          docker logs apisix
+          exit 1
+
+      - name: Run E2E tests
+        run: go test -v -tags e2e -count=1 -timeout 5m ./test/e2e/...
+
+      - name: Collect APISIX logs
+        if: failure()
+        run: |
+          mkdir -p /tmp/apisix-logs
+          docker logs apisix > /tmp/apisix-logs/apisix.log 2>&1 || true
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apisix-logs
+          path: /tmp/apisix-logs/
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f apisix httpbin 2>/dev/null || true
