@@ -85,7 +85,7 @@ func updateRun(opts *Options) error {
 	}
 
 	client := api.NewClient(httpClient, cfg.BaseURL())
-	body, err := client.Patch(fmt.Sprintf("/apisix/admin/consumers/%s/credentials/%s", opts.Consumer, opts.ID), payload)
+	body, err := client.Put(fmt.Sprintf("/apisix/admin/consumers/%s/credentials/%s", opts.Consumer, opts.ID), payload)
 	if err != nil {
 		return fmt.Errorf("%s", cmdutil.FormatAPIError(err))
 	}

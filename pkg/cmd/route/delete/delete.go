@@ -164,18 +164,35 @@ func bulkDeleteRoutes(opts *Options) error {
 	return nil
 }
 
+// parseLabel splits a "key=value" label into key and value parts.
+// APISIX Admin API only supports filtering by label key, so we send the key
+// as the query parameter and perform client-side filtering by value.
+func parseLabel(label string) (key, value string) {
+	parts := strings.SplitN(label, "=", 2)
+	key = parts[0]
+	if len(parts) == 2 {
+		value = parts[1]
+	}
+	return
+}
+
 func listAllRouteIDs(client *api.Client, label string) ([]string, error) {
 	page := 1
 	pageSize := 500
 	ids := make([]string, 0)
+
+	var labelKey, labelValue string
+	if label != "" {
+		labelKey, labelValue = parseLabel(label)
+	}
 
 	for {
 		query := map[string]string{
 			"page":      fmt.Sprintf("%d", page),
 			"page_size": fmt.Sprintf("%d", pageSize),
 		}
-		if label != "" {
-			query["label"] = label
+		if labelKey != "" {
+			query["label"] = labelKey
 		}
 
 		body, err := client.Get("/apisix/admin/routes", query)
@@ -189,12 +206,19 @@ func listAllRouteIDs(client *api.Client, label string) ([]string, error) {
 		}
 
 		for _, item := range resp.List {
-			if item.Value.ID != nil && *item.Value.ID != "" {
-				ids = append(ids, *item.Value.ID)
+			if item.Value.ID == nil || *item.Value.ID == "" {
+				continue
 			}
+			// Client-side filter by label value if specified.
+			if labelValue != "" && item.Value.Labels != nil {
+				if v, ok := item.Value.Labels[labelKey]; !ok || v != labelValue {
+					continue
+				}
+			}
+			ids = append(ids, *item.Value.ID)
 		}
 
-		if len(resp.List) == 0 || len(ids) >= resp.Total {
+		if len(resp.List) == 0 || page*pageSize >= resp.Total {
 			break
 		}
 		page++

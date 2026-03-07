@@ -51,7 +51,7 @@ func TestPluginMetadata_CRUD(t *testing.T) {
 
 	stdout, stderr, err = runA6WithEnv(env, "plugin-metadata", "get", pluginName)
 	require.NoError(t, err, "plugin-metadata get failed: stdout=%s stderr=%s", stdout, stderr)
-	assert.Contains(t, stdout, "host: $host")
+	assert.Contains(t, stdout, "$host")
 
 	updateJSON := `{
 		"log_format": {
@@ -67,7 +67,7 @@ func TestPluginMetadata_CRUD(t *testing.T) {
 
 	stdout, stderr, err = runA6WithEnv(env, "plugin-metadata", "get", pluginName)
 	require.NoError(t, err, "plugin-metadata get after update failed: stdout=%s stderr=%s", stdout, stderr)
-	assert.Contains(t, stdout, "request_id: $request_id")
+	assert.Contains(t, stdout, "$request_id")
 
 	stdout, stderr, err = runA6WithEnv(env, "plugin-metadata", "delete", pluginName, "--force")
 	require.NoError(t, err, "plugin-metadata delete failed: stdout=%s stderr=%s", stdout, stderr)

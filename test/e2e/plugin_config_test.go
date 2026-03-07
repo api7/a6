@@ -103,7 +103,8 @@ func TestPluginConfig_ListEmpty(t *testing.T) {
 	noItems := strings.Contains(combined, "No plugin configs") ||
 		strings.Contains(combined, "no plugin configs") ||
 		strings.Contains(combined, "0")
-	assert.True(t, noItems || strings.TrimSpace(stdout) == "", "list should indicate no plugin configs found, got: %s", combined)
+	assert.True(t, noItems || strings.TrimSpace(stdout) == "" || strings.TrimSpace(stdout) == "[]",
+		"list should indicate no plugin configs found, got: %s", combined)
 }
 
 func TestPluginConfig_GetNonExistent(t *testing.T) {

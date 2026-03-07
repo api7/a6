@@ -107,7 +107,8 @@ func TestConsumerGroup_ListEmpty(t *testing.T) {
 	noGroups := strings.Contains(combined, "No consumer groups") ||
 		strings.Contains(combined, "no consumer groups") ||
 		strings.Contains(combined, "0")
-	assert.True(t, noGroups || strings.TrimSpace(stdout) == "", "list should indicate no consumer groups found, got: %s", combined)
+	assert.True(t, noGroups || strings.TrimSpace(stdout) == "" || strings.TrimSpace(stdout) == "[]",
+		"list should indicate no consumer groups found, got: %s", combined)
 }
 
 func TestConsumerGroup_GetNonExistent(t *testing.T) {

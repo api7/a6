@@ -10,13 +10,13 @@ import (
 )
 
 func TestInteractive_RouteGetRequiresIDInNonTTY(t *testing.T) {
-	_, stderr, err := runA6("route", "get")
+	_, stderr, err := runA6("route", "get", "--server", adminURL, "--api-key", adminKey)
 	require.Error(t, err)
 	assert.Contains(t, stderr, "id argument is required")
 }
 
 func TestInteractive_UpstreamHealthRequiresIDInNonTTY(t *testing.T) {
-	_, stderr, err := runA6("upstream", "health")
+	_, stderr, err := runA6("upstream", "health", "--server", adminURL, "--api-key", adminKey)
 	require.Error(t, err)
 	assert.Contains(t, stderr, "id argument is required")
 }

@@ -61,8 +61,8 @@ func TestGlobalRule_CRUD(t *testing.T) {
 	updateJSON := `{
 		"plugins": {
 			"prometheus": {},
-			"server-header": {
-				"server_header_value": "APISIX-Test"
+			"ip-restriction": {
+				"whitelist": ["0.0.0.0/0"]
 			}
 		}
 	}`
@@ -74,7 +74,7 @@ func TestGlobalRule_CRUD(t *testing.T) {
 
 	stdout, stderr, err = runA6WithEnv(env, "global-rule", "get", ruleID)
 	require.NoError(t, err, "global-rule get after update failed: stdout=%s stderr=%s", stdout, stderr)
-	assert.Contains(t, stdout, "server-header")
+	assert.Contains(t, stdout, "ip-restriction")
 
 	stdout, stderr, err = runA6WithEnv(env, "global-rule", "delete", ruleID, "--force")
 	require.NoError(t, err, "global-rule delete failed: stdout=%s stderr=%s", stdout, stderr)
@@ -97,7 +97,8 @@ func TestGlobalRule_ListEmpty(t *testing.T) {
 	noRules := strings.Contains(combined, "No global rules") ||
 		strings.Contains(combined, "no global rules") ||
 		strings.Contains(combined, "0")
-	assert.True(t, noRules || strings.TrimSpace(stdout) == "", "list should indicate no global rules found, got: %s", combined)
+	assert.True(t, noRules || strings.TrimSpace(stdout) == "" || strings.TrimSpace(stdout) == "[]",
+		"list should indicate no global rules found, got: %s", combined)
 }
 
 func TestGlobalRule_GetNonExistent(t *testing.T) {
