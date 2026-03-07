@@ -142,6 +142,37 @@ a6 route get
 This works for resource commands that support ID-based get, delete, update, and upstream health.
 Interactive mode requires a terminal. In scripts or pipes, provide the ID explicitly.
 
+## Debug Request Tracing
+
+Use `a6 debug trace` to verify how a request flows through a route.
+
+```bash
+a6 debug trace getting-started
+```
+
+By default, this command:
+
+- Fetches the route from the Admin API
+- Sends a probe request to the APISIX gateway
+- Shows response status, latency, and plugin execution details (when available)
+
+Useful options:
+
+```bash
+a6 debug trace getting-started \
+  --method GET \
+  --path /get \
+  --output json
+```
+
+You can also override data-plane and control-plane addresses when needed:
+
+```bash
+a6 debug trace getting-started \
+  --gateway-url http://127.0.0.1:9080 \
+  --control-url http://127.0.0.1:9090
+```
+
 ## Managing Multiple Contexts
 
 You can create multiple contexts for different environments like staging or production.

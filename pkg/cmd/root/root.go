@@ -10,6 +10,7 @@ import (
 	consumergroupCmd "github.com/api7/a6/pkg/cmd/consumergroup"
 	contextCmd "github.com/api7/a6/pkg/cmd/context"
 	credentialCmd "github.com/api7/a6/pkg/cmd/credential"
+	debugCmd "github.com/api7/a6/pkg/cmd/debug"
 	globalruleCmd "github.com/api7/a6/pkg/cmd/globalrule"
 	pluginCmd "github.com/api7/a6/pkg/cmd/plugin"
 	pluginconfigCmd "github.com/api7/a6/pkg/cmd/pluginconfig"
@@ -49,6 +50,7 @@ func NewCmdRoot(f *cmd.Factory) *cobra.Command {
 	rootCmd.AddCommand(consumergroupCmd.NewCmdConsumerGroup(f))
 	rootCmd.AddCommand(contextCmd.NewCmdContext(f))
 	rootCmd.AddCommand(credentialCmd.NewCmdCredential(f))
+	rootCmd.AddCommand(debugCmd.NewCmdDebug(f))
 	rootCmd.AddCommand(globalruleCmd.NewCmdGlobalRule(f))
 	rootCmd.AddCommand(pluginCmd.NewCmdPlugin(f))
 	rootCmd.AddCommand(pluginconfigCmd.NewCmdPluginConfig(f))
