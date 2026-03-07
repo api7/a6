@@ -4,6 +4,8 @@ This document defines the per-PR development plan for the a6 CLI. Each PR is sel
 
 **Audience**: AI coding agents and human developers. Each PR section contains enough detail to be implemented autonomously.
 
+> **Status: ✅ ALL 27 PRs COMPLETE** — The entire roadmap has been implemented, tested, and shipped.
+
 ---
 
 ## Table of Contents
@@ -123,7 +125,7 @@ docker-compose -f test/e2e/docker-compose.yml down -v
 
 ---
 
-## Phase 1 — MVP
+## Phase 1 — MVP ✅
 
 ### PR-1: CI & E2E Testing Infrastructure
 
@@ -1098,7 +1100,7 @@ setup instructions in the getting started guide.
 
 ---
 
-## Phase 2 PRs
+## Phase 2 PRs ✅
 
 Phase 2 extends a6 with remaining resources and advanced features. Each PR follows the same pattern established in Phase 1.
 
@@ -1201,65 +1203,86 @@ Phase 2 extends a6 with remaining resources and advanced features. Each PR follo
 
 ---
 
-## Phase 3 PRs
+## Phase 3 PRs ✅
 
-Phase 3 adds advanced features. These PRs will be defined in detail when Phase 2 is complete.
+Phase 3 adds advanced features including debug tooling, bulk operations, auto-update, and CLI extensions.
 
 ### PR-23: Debug — Request Tracing
 
-- `a6 debug trace <route-id>`: Send a test request and show plugin execution trace
-- Requires APISIX debug mode headers
+- **Commands**: `a6 debug trace <route-id>`
+- Send a test request and show plugin execution trace, response status, latency
+- Fetches route from Admin API, sends probe to gateway, shows debug headers
+- Supports `--method`, `--path`, `--header`, `--gateway-url`, `--control-url` flags
+- **E2E tests**: Trace a route, verify output contains status and latency
+- **Docs**: Updated `docs/user-guide/getting-started.md` with debug trace section
 
 ### PR-24: Debug — Log Streaming
 
-- `a6 debug logs --follow`: Stream APISIX error/access logs
-- May require additional APISIX configuration
+- **Commands**: `a6 debug logs`
+- Stream APISIX error/access logs from Docker containers via `docker logs`
+- Supports `--container`, `--tail`, `--follow`, `--since`, `--timestamps` flags
+- **E2E tests**: Verify log streaming output
+- **Docs**: Updated getting started guide with log streaming examples
 
 ### PR-25: Bulk Operations
 
-- `a6 route delete --all --label env=test`: Bulk delete by label
-- `a6 route export --label env=staging > staging-routes.yaml`: Bulk export
+- **Commands**: `a6 <resource> delete --all|--label`, `a6 <resource> export --all|--label`
+- Bulk delete and export operations for all resources that support labels
+- `--all` and `--label key=value` filtering with `--force` for confirmation skip
+- **E2E tests**: Bulk delete by label, bulk export with JSON/YAML output
+- **Docs**: `docs/user-guide/bulk-operations.md`, updated getting started guide
 
 ### PR-26: Auto-Update
 
-- `a6 update`: Self-update mechanism using GitHub releases
-- Check for updates on CLI startup (background, non-blocking)
+- **Commands**: `a6 update`
+- Self-update from GitHub releases with platform-specific binary replacement
+- Background update check with 24h cache, non-blocking notice on startup
+- Archive detection (tar.gz/zip), atomic binary replacement, rollback on failure
+- Zero new dependencies — stdlib only
+- **E2E tests**: Version output, update check behavior
+- **Docs**: `docs/user-guide/auto-update.md`, updated getting started guide
 
-### PR-27: Plugin System
+### PR-27: CLI Extension System
 
-- `a6 plugin install <name>`: Install CLI extensions
-- Plugin discovery, loading, and execution framework
+- **Commands**: `a6 extension install|list|upgrade|remove` (alias: `a6 ext`)
+- GitHub-centric extension management — download platform-specific binaries from GitHub Releases
+- Extensions become top-level `a6` commands via subprocess execution with `DisableFlagParsing`
+- Manifest-based tracking in `~/.config/a6/extensions/`
+- DI-friendly Manager struct with injectable `fetchRelease` and `downloadAsset`
+- Zero new dependencies
+- **E2E tests**: List empty, install invalid format, remove not found, help output, alias
+- **Docs**: `docs/user-guide/extensions.md`, updated getting started guide
 
 ---
 
 ## Summary Table
 
-| PR | Scope | Phase | Dependencies | E2E Tests |
-|----|-------|-------|-------------|-----------|
-| PR-1 | CI + E2E Infrastructure | 1 | None | Smoke tests |
-| PR-2 | Foundation Packages | 1 | PR-1 | Unit tests only |
-| PR-3 | Context Management | 1 | PR-2 | Context CRUD |
-| PR-4 | Route CRUD | 1 | PR-3 | Full CRUD + traffic forwarding |
-| PR-5 | Upstream CRUD | 1 | PR-4 | Full CRUD + route integration |
-| PR-6 | Service CRUD | 1 | PR-4 | Full CRUD + route integration |
-| PR-7 | Consumer CRUD | 1 | PR-4 | Full CRUD + auth validation |
-| PR-8 | SSL CRUD | 1 | PR-4 | Full CRUD with self-signed certs |
-| PR-9 | Plugin List/Get | 1 | PR-4 | Read-only plugin queries |
-| PR-10 | Completions + Version | 1 | PR-2 | Output validation |
-| PR-11 | Global Rule CRUD | 2 | Phase 1 | Full CRUD |
-| PR-12 | Stream Route CRUD | 2 | Phase 1 | Full CRUD |
-| PR-13 | Proto CRUD | 2 | Phase 1 | Full CRUD |
-| PR-14 | Plugin Metadata | 2 | Phase 1 | Get/Set/Delete |
-| PR-15 | Plugin Config CRUD | 2 | Phase 1 | Full CRUD |
-| PR-16 | Consumer Group CRUD | 2 | Phase 1 | Full CRUD |
-| PR-17 | Secret Manager CRUD | 2 | Phase 1 | Full CRUD |
-| PR-18 | Consumer Credential | 2 | Phase 1 | Nested CRUD + auth |
-| PR-19 | Config Dump/Validate | 2 | Phase 1 | Dump + validate |
-| PR-20 | Config Sync/Diff | 2 | PR-19 | Full declarative sync |
-| PR-21 | Upstream Health | 2 | Phase 1 | Health status query |
-| PR-22 | Interactive Mode | 2 | Phase 1 | Unit tests (limited e2e) |
-| PR-23 | Debug Tracing | 3 | Phase 2 | TBD |
-| PR-24 | Debug Logs | 3 | Phase 2 | TBD |
-| PR-25 | Bulk Operations | 3 | Phase 2 | TBD |
-| PR-26 | Auto-Update | 3 | Phase 2 | TBD |
-| PR-27 | Plugin System | 3 | Phase 2 | TBD |
+| PR | Scope | Phase | Status | E2E Tests |
+|----|-------|-------|--------|-----------|
+| PR-1 | CI + E2E Infrastructure | 1 | ✅ | Smoke tests |
+| PR-2 | Foundation Packages | 1 | ✅ | Unit tests only |
+| PR-3 | Context Management | 1 | ✅ | Context CRUD |
+| PR-4 | Route CRUD | 1 | ✅ | Full CRUD + traffic forwarding |
+| PR-5 | Upstream CRUD | 1 | ✅ | Full CRUD + route integration |
+| PR-6 | Service CRUD | 1 | ✅ | Full CRUD + route integration |
+| PR-7 | Consumer CRUD | 1 | ✅ | Full CRUD + auth validation |
+| PR-8 | SSL CRUD | 1 | ✅ | Full CRUD with self-signed certs |
+| PR-9 | Plugin List/Get | 1 | ✅ | Read-only plugin queries |
+| PR-10 | Completions + Version | 1 | ✅ | Output validation |
+| PR-11 | Global Rule CRUD | 2 | ✅ | Full CRUD |
+| PR-12 | Stream Route CRUD | 2 | ✅ | Full CRUD |
+| PR-13 | Proto CRUD | 2 | ✅ | Full CRUD |
+| PR-14 | Plugin Metadata | 2 | ✅ | Get/Set/Delete |
+| PR-15 | Plugin Config CRUD | 2 | ✅ | Full CRUD |
+| PR-16 | Consumer Group CRUD | 2 | ✅ | Full CRUD |
+| PR-17 | Secret Manager CRUD | 2 | ✅ | Full CRUD |
+| PR-18 | Consumer Credential | 2 | ✅ | Nested CRUD + auth |
+| PR-19 | Config Dump/Validate | 2 | ✅ | Dump + validate |
+| PR-20 | Config Sync/Diff | 2 | ✅ | Full declarative sync |
+| PR-21 | Upstream Health | 2 | ✅ | Health status query |
+| PR-22 | Interactive Mode | 2 | ✅ | Unit tests (limited e2e) |
+| PR-23 | Debug Tracing | 3 | ✅ | Route trace + output validation |
+| PR-24 | Debug Logs | 3 | ✅ | Log streaming output |
+| PR-25 | Bulk Operations | 3 | ✅ | Bulk delete/export by label |
+| PR-26 | Auto-Update | 3 | ✅ | Version + update check |
+| PR-27 | CLI Extensions | 3 | ✅ | Extension management lifecycle |
