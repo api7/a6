@@ -5,6 +5,7 @@ import (
 
 	"github.com/api7/a6/pkg/cmd"
 	"github.com/api7/a6/pkg/cmd/completion"
+	configCmd "github.com/api7/a6/pkg/cmd/config"
 	consumerCmd "github.com/api7/a6/pkg/cmd/consumer"
 	consumergroupCmd "github.com/api7/a6/pkg/cmd/consumergroup"
 	contextCmd "github.com/api7/a6/pkg/cmd/context"
@@ -43,6 +44,7 @@ func NewCmdRoot(f *cmd.Factory) *cobra.Command {
 
 	// Command groups.
 	rootCmd.AddCommand(completion.NewCmdCompletion())
+	rootCmd.AddCommand(configCmd.NewCmdConfig(f))
 	rootCmd.AddCommand(consumerCmd.NewCmdConsumer(f))
 	rootCmd.AddCommand(consumergroupCmd.NewCmdConsumerGroup(f))
 	rootCmd.AddCommand(contextCmd.NewCmdContext(f))
