@@ -23,6 +23,7 @@ List of project documents and their specific purpose:
 | `docs/coding-standards.md` | Go style, naming, formatting conventions | Before writing code |
 | `docs/testing-strategy.md` | Test patterns, mocking, fixtures, e2e testing | Before writing tests |
 | `docs/documentation-maintenance.md` | Doc update rules | After any code change |
+| `docs/skills.md` | AI agent skill format, taxonomy, authoring guide | When adding or modifying skills |
 | `docs/user-guide/getting-started.md` | Installation, first context, quick start | New users, onboarding |
 | `docs/user-guide/configuration.md` | Config file, env vars, context commands | When working with config/context |
 | `.github/workflows/ci.yml` | Unit test + lint CI workflow | When modifying CI |
@@ -63,6 +64,10 @@ a6/
 │   ├── smoke_test.go             # Smoke tests (APISIX reachable)
 │   ├── docker-compose.yml        # Local dev docker-compose
 │   └── apisix_conf/              # APISIX config files for testing
+├── skills/                        # AI agent skill files (SKILL.md)
+│   └── a6-shared/SKILL.md       # Core shared skill
+├── scripts/                       # CI and utility scripts
+│   └── validate-skills.sh       # SKILL.md validation for CI
 └── Makefile                       # Build, test, lint, docker commands
 ```
 
@@ -88,16 +93,17 @@ Follow these steps when adding a new command, such as `a6 upstream list`:
 
 ### Common Commands
 ```bash
-make build          # Build binary to ./bin/a6
-make test           # Run all tests (unit only, excludes e2e)
-make test-verbose   # Run tests with verbose output
-make test-e2e       # Run e2e tests (requires running APISIX)
-make lint           # Run golangci-lint
-make fmt            # Format code
-make check          # Run all checks (fmt + vet + lint + test)
-make clean          # Remove build artifacts
-make docker-up      # Start local APISIX stack for e2e development
-make docker-down    # Stop local APISIX stack
+make build            # Build binary to ./bin/a6
+make test             # Run all tests (unit only, excludes e2e)
+make test-verbose     # Run tests with verbose output
+make test-e2e         # Run e2e tests (requires running APISIX)
+make lint             # Run golangci-lint
+make fmt              # Format code
+make check            # Run all checks (fmt + vet + lint + test)
+make validate-skills  # Validate all SKILL.md files
+make clean            # Remove build artifacts
+make docker-up        # Start local APISIX stack for e2e development
+make docker-down      # Stop local APISIX stack
 ```
 
 ### E2E Testing

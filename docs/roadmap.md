@@ -4,7 +4,7 @@ This document defines the per-PR development plan for the a6 CLI. Each PR is sel
 
 **Audience**: AI coding agents and human developers. Each PR section contains enough detail to be implemented autonomously.
 
-> **Status: ✅ ALL 27 PRs COMPLETE** — The entire roadmap has been implemented, tested, and shipped.
+> **Status: ✅ Phase 1-3 COMPLETE (27 PRs)** — Phase 4 (AI Agent Skills, PR-28 through PR-36) is in progress.
 
 ---
 
@@ -22,6 +22,7 @@ This document defines the per-PR development plan for the a6 CLI. Each PR is sel
 - [Shell Completions & Version](#pr-10-shell-completions--version)
 - [Phase 2 PRs](#phase-2-prs)
 - [Phase 3 PRs](#phase-3-prs)
+- [Phase 4 — AI Agent Skills](#phase-4--ai-agent-skills)
 
 ---
 
@@ -1255,10 +1256,92 @@ Phase 3 adds advanced features including debug tooling, bulk operations, auto-up
 
 ---
 
+## Phase 4 — AI Agent Skills
+
+Phase 4 adds AI agent skill files (`SKILL.md`) that enable AI coding agents to work effectively with APISIX through the a6 CLI. See `docs/skills.md` for the full skill format specification.
+
+### PR-28: Skills Infrastructure + Shared Skill
+
+**Goal**: Establish the skills directory structure, CI validation, and the first shared skill.
+
+#### Files to Create
+
+| File | Purpose |
+|------|---------|
+| `skills/a6-shared/SKILL.md` | Core shared skill — project conventions, patterns, development workflow |
+| `scripts/validate-skills.sh` | CI validation script for SKILL.md frontmatter |
+| `docs/skills.md` | Skills format, taxonomy, and authoring guide |
+
+#### Files to Modify
+
+| File | Change |
+|------|--------|
+| `.github/workflows/ci.yml` | Add `validate-skills` job |
+| `Makefile` | Add `validate-skills` target |
+| `AGENTS.md` | Add skills directory to project structure and document map |
+| `docs/roadmap.md` | Add PR-28 through PR-36 |
+
+#### Validation Rules
+
+- Required frontmatter fields: `name`, `description`
+- `name` must match directory name
+- `name` must follow kebab-case: `^[a-z0-9]+(-[a-z0-9]+)*$`
+- `description` must be non-empty
+
+### PR-29: Authentication Plugin Skills
+
+- **Skills**: `a6-plugin-key-auth`, `a6-plugin-jwt-auth`, `a6-plugin-basic-auth`, `a6-plugin-hmac-auth`, `a6-plugin-openid-connect`
+- **Type**: Plugin skills covering APISIX authentication plugins
+- **Content**: Plugin overview, config reference, step-by-step enable/configure, consumer binding, common patterns
+
+### PR-30: Security + Rate Limiting Skills
+
+- **Skills**: `a6-plugin-ip-restriction`, `a6-plugin-cors`, `a6-plugin-limit-count`, `a6-plugin-limit-req`
+- **Type**: Plugin skills covering security and rate limiting
+- **Content**: Plugin overview, config reference, enable/configure steps, common patterns
+
+### PR-31: Traffic + Transformation Skills
+
+- **Skills**: `a6-plugin-proxy-rewrite`, `a6-plugin-response-rewrite`, `a6-plugin-traffic-split`, `a6-plugin-redirect`, `a6-plugin-grpc-transcode`
+- **Type**: Plugin skills covering traffic management and request/response transformation
+- **Content**: Plugin overview, rewrite rules, weighted traffic splitting, redirect patterns
+
+### PR-32: Operational Recipe Skills
+
+- **Skills**: `a6-recipe-blue-green`, `a6-recipe-canary`, `a6-recipe-circuit-breaker`, `a6-recipe-health-check`, `a6-recipe-mtls`
+- **Type**: Recipe skills for common operational tasks
+- **Content**: Goal, prerequisites, step-by-step with a6 commands, verification, rollback
+
+### PR-33: AI Gateway Skills
+
+- **Skills**: `a6-plugin-ai-proxy`, `a6-plugin-ai-prompt-template`, `a6-plugin-ai-prompt-decorator`, `a6-plugin-ai-content-moderation`
+- **Type**: Plugin skills for APISIX AI Gateway features
+- **Content**: AI proxy config (OpenAI/Azure/Claude), prompt management, content filtering
+
+### PR-34: Observability Skills
+
+- **Skills**: `a6-plugin-prometheus`, `a6-plugin-skywalking`, `a6-plugin-zipkin`, `a6-plugin-http-logger`, `a6-plugin-kafka-logger`, `a6-plugin-datadog`
+- **Type**: Plugin skills covering monitoring, tracing, and logging
+- **Content**: Plugin config, metrics/traces/logs setup, dashboard integration
+
+### PR-35: Advanced Plugin Skills
+
+- **Skills**: `a6-plugin-serverless`, `a6-plugin-ext-plugin`, `a6-plugin-fault-injection`, `a6-plugin-consumer-restriction`, `a6-plugin-wolf-rbac`
+- **Type**: Plugin skills for advanced/specialized plugins
+- **Content**: Serverless function config, external plugin runner, fault injection patterns
+
+### PR-36: Advanced Recipes + Personas
+
+- **Skills**: `a6-recipe-multi-tenant`, `a6-recipe-api-versioning`, `a6-recipe-graphql-proxy`, `a6-persona-operator`, `a6-persona-developer`
+- **Type**: Advanced recipes and role-based personas
+- **Content**: Multi-tenant gateway setup, API version routing, GraphQL proxying, operator/developer workflow guidance
+
+---
+
 ## Summary Table
 
-| PR | Scope | Phase | Status | E2E Tests |
-|----|-------|-------|--------|-----------|
+| PR | Scope | Phase | Status | Validation |
+|----|-------|-------|--------|------------|
 | PR-1 | CI + E2E Infrastructure | 1 | ✅ | Smoke tests |
 | PR-2 | Foundation Packages | 1 | ✅ | Unit tests only |
 | PR-3 | Context Management | 1 | ✅ | Context CRUD |
@@ -1286,3 +1369,12 @@ Phase 3 adds advanced features including debug tooling, bulk operations, auto-up
 | PR-25 | Bulk Operations | 3 | ✅ | Bulk delete/export by label |
 | PR-26 | Auto-Update | 3 | ✅ | Version + update check |
 | PR-27 | CLI Extensions | 3 | ✅ | Extension management lifecycle |
+| PR-28 | Skills Infra + Shared Skill | 4 | 🚧 | CI validation |
+| PR-29 | Auth Plugin Skills | 4 | ⬚ | CI validation |
+| PR-30 | Security + Rate Limiting Skills | 4 | ⬚ | CI validation |
+| PR-31 | Traffic + Transformation Skills | 4 | ⬚ | CI validation |
+| PR-32 | Operational Recipe Skills | 4 | ⬚ | CI validation |
+| PR-33 | AI Gateway Skills | 4 | ⬚ | CI validation |
+| PR-34 | Observability Skills | 4 | ⬚ | CI validation |
+| PR-35 | Advanced Plugin Skills | 4 | ⬚ | CI validation |
+| PR-36 | Advanced Recipes + Personas | 4 | ⬚ | CI validation |

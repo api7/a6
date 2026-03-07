@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install help test-e2e docker-up docker-down
+.PHONY: build test lint clean install help test-e2e docker-up docker-down validate-skills
 
 # Build variables
 BINARY_NAME := a6
@@ -76,6 +76,10 @@ docker-up:
 ## docker-down: Stop local APISIX stack
 docker-down:
 	docker compose -f test/e2e/docker-compose.yml down -v
+
+## validate-skills: Validate all SKILL.md files in skills/
+validate-skills:
+	./scripts/validate-skills.sh
 
 ## check: Run all checks (fmt, vet, lint, test)
 check: fmt vet lint test

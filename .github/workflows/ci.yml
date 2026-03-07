@@ -48,3 +48,12 @@ jobs:
       - uses: golangci/golangci-lint-action@v6
         with:
           version: latest
+
+  validate-skills:
+    name: Validate Skills
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate SKILL.md files
+        run: ./scripts/validate-skills.sh
