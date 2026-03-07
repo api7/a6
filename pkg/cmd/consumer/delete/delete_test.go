@@ -90,3 +90,12 @@ func TestConsumerDelete_MissingArg(t *testing.T) {
 
 	require.Error(t, err)
 }
+
+func TestConsumerDelete_NoArgsNonTTY(t *testing.T) {
+	ios, _, _, _ := iostreams.Test()
+	err := deleteRun(&Options{
+		IO: ios,
+	})
+	require.Error(t, err)
+	assert.Equal(t, "username argument is required (or run interactively in a terminal)", err.Error())
+}

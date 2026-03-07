@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -15,6 +16,7 @@ import (
 	"github.com/api7/a6/pkg/cmd"
 	"github.com/api7/a6/pkg/cmdutil"
 	"github.com/api7/a6/pkg/iostreams"
+	"github.com/api7/a6/pkg/selector"
 )
 
 type Options struct {
@@ -35,11 +37,13 @@ func NewCmdUpdate(f *cmd.Factory) *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update [id]",
 		Short: "Update an SSL certificate",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			opts.ID = args[0]
+			if len(args) > 0 {
+				opts.ID = args[0]
+			}
 			if opts.File == "" {
 				return &cmdutil.FlagError{Err: fmt.Errorf("required flag \"file\" not set")}
 			}
@@ -54,6 +58,17 @@ func NewCmdUpdate(f *cmd.Factory) *cobra.Command {
 }
 
 func updateRun(opts *Options) error {
+	if opts.ID == "" {
+		if !opts.IO.IsStdinTTY() {
+			return fmt.Errorf("id argument is required (or run interactively in a terminal)")
+		}
+		id, err := selectSsl(opts)
+		if err != nil {
+			return err
+		}
+		opts.ID = id
+	}
+
 	cfg, err := opts.Config()
 	if err != nil {
 		return err
@@ -104,4 +119,48 @@ func updateRun(opts *Options) error {
 	}
 
 	return cmdutil.NewExporter(format, opts.IO.Out).Write(resp.Value)
+}
+
+func selectSsl(opts *Options) (string, error) {
+	cfg, err := opts.Config()
+	if err != nil {
+		return "", err
+	}
+
+	httpClient, err := opts.Client()
+	if err != nil {
+		return "", err
+	}
+
+	client := api.NewClient(httpClient, cfg.BaseURL())
+	body, err := client.Get("/apisix/admin/ssls", nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch SSL certificates: %s", cmdutil.FormatAPIError(err))
+	}
+
+	var resp api.ListResponse[api.SSL]
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	items := make([]selector.Item, 0, len(resp.List))
+	for _, item := range resp.List {
+		id := item.Key
+		if item.Value.ID != nil {
+			id = *item.Value.ID
+		}
+		if id == "" {
+			continue
+		}
+		label := id
+		if len(item.Value.SNIs) > 0 {
+			label = fmt.Sprintf("%s (%s)", strings.Join(item.Value.SNIs, ","), id)
+		}
+		items = append(items, selector.Item{ID: id, Label: label})
+	}
+	if len(items) == 0 {
+		return "", fmt.Errorf("no SSL certificates found")
+	}
+
+	return selector.SelectOne("Select an SSL certificate", items)
 }

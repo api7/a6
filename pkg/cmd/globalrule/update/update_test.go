@@ -88,3 +88,12 @@ func TestGlobalRuleUpdate_MissingFile(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "file")
 }
+
+func TestGlobalruleUpdate_NoArgsNonTTY(t *testing.T) {
+	ios, _, _, _ := iostreams.Test()
+	err := updateRun(&Options{
+		IO: ios,
+	})
+	require.Error(t, err)
+	assert.Equal(t, "id argument is required (or run interactively in a terminal)", err.Error())
+}

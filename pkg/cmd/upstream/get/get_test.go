@@ -116,3 +116,12 @@ func TestUpstreamGet_NotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 	reg.Verify(t)
 }
+
+func TestUpstreamGet_NoArgsNonTTY(t *testing.T) {
+	ios, _, _, _ := iostreams.Test()
+	err := getRun(&Options{
+		IO: ios,
+	})
+	require.Error(t, err)
+	assert.Equal(t, "id argument is required (or run interactively in a terminal)", err.Error())
+}

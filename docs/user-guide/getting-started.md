@@ -122,6 +122,26 @@ When you are done, you can delete the route:
 a6 route delete getting-started --force
 ```
 
+
+## Interactive Mode
+
+When you run a command that requires a resource ID without providing one,
+a6 presents an interactive fuzzy-filterable list:
+
+```bash
+# Instead of remembering the route ID...
+a6 route get
+
+# a6 fetches all routes and presents a picker:
+# > Select a route
+#   my-api (1)
+#   auth-service (2)
+#   health-check (3)
+```
+
+This works for resource commands that support ID-based get, delete, update, and upstream health.
+Interactive mode requires a terminal. In scripts or pipes, provide the ID explicitly.
+
 ## Managing Multiple Contexts
 
 You can create multiple contexts for different environments like staging or production.

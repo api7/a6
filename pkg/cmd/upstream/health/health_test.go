@@ -138,3 +138,12 @@ func TestUpstreamHealth_CustomControlURL(t *testing.T) {
 	assert.Equal(t, 1, reg.CallCount(http.MethodGet, "/v1/healthcheck/upstreams/1"))
 	reg.Verify(t)
 }
+
+func TestUpstreamHealth_NoArgsNonTTY(t *testing.T) {
+	ios, _, _, _ := iostreams.Test()
+	err := healthRun(&Options{
+		IO: ios,
+	})
+	require.Error(t, err)
+	assert.Equal(t, "id argument is required (or run interactively in a terminal)", err.Error())
+}

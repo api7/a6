@@ -15,6 +15,7 @@ import (
 	"github.com/api7/a6/pkg/cmd"
 	"github.com/api7/a6/pkg/cmdutil"
 	"github.com/api7/a6/pkg/iostreams"
+	"github.com/api7/a6/pkg/selector"
 )
 
 type Options struct {
@@ -35,11 +36,13 @@ func NewCmdUpdate(f *cmd.Factory) *cobra.Command {
 	}
 
 	cmd := &cobra.Command{
-		Use:   "update <username>",
+		Use:   "update [username]",
 		Short: "Update a consumer",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			opts.Username = args[0]
+			if len(args) > 0 {
+				opts.Username = args[0]
+			}
 			if opts.File == "" {
 				return &cmdutil.FlagError{Err: fmt.Errorf("required flag \"file\" not set")}
 			}
@@ -54,6 +57,17 @@ func NewCmdUpdate(f *cmd.Factory) *cobra.Command {
 }
 
 func updateRun(opts *Options) error {
+	if opts.Username == "" {
+		if !opts.IO.IsStdinTTY() {
+			return fmt.Errorf("username argument is required (or run interactively in a terminal)")
+		}
+		id, err := selectConsumer(opts)
+		if err != nil {
+			return err
+		}
+		opts.Username = id
+	}
+
 	cfg, err := opts.Config()
 	if err != nil {
 		return err
@@ -106,4 +120,45 @@ func updateRun(opts *Options) error {
 	}
 
 	return cmdutil.NewExporter(format, opts.IO.Out).Write(resp.Value)
+}
+
+func selectConsumer(opts *Options) (string, error) {
+	cfg, err := opts.Config()
+	if err != nil {
+		return "", err
+	}
+
+	httpClient, err := opts.Client()
+	if err != nil {
+		return "", err
+	}
+
+	client := api.NewClient(httpClient, cfg.BaseURL())
+	body, err := client.Get("/apisix/admin/consumers", nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch consumers: %s", cmdutil.FormatAPIError(err))
+	}
+
+	var resp api.ListResponse[api.Consumer]
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	items := make([]selector.Item, 0, len(resp.List))
+	for _, item := range resp.List {
+		id := ""
+		if item.Value.Username != nil {
+			id = *item.Value.Username
+		}
+		if id == "" {
+			continue
+		}
+		label := id
+		items = append(items, selector.Item{ID: id, Label: label})
+	}
+	if len(items) == 0 {
+		return "", fmt.Errorf("no consumers found")
+	}
+
+	return selector.SelectOne("Select a consumer", items)
 }
