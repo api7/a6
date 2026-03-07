@@ -96,24 +96,15 @@ func dumpRun(opts *Options) error {
 	}
 	streamRouteItems, err := fetchPaginated[api.StreamRoute](client, "/apisix/admin/stream_routes")
 	if err != nil {
-		if !cmdutil.IsOptionalResourceError(err) {
-			return fmt.Errorf("%s", cmdutil.FormatAPIError(err))
-		}
-		streamRouteItems = nil
+		return fmt.Errorf("%s", cmdutil.FormatAPIError(err))
 	}
 	protoItems, err := fetchPaginated[api.Proto](client, "/apisix/admin/protos")
 	if err != nil {
-		if !cmdutil.IsOptionalResourceError(err) {
-			return fmt.Errorf("%s", cmdutil.FormatAPIError(err))
-		}
-		protoItems = nil
+		return fmt.Errorf("%s", cmdutil.FormatAPIError(err))
 	}
 	secretItems, err := fetchPaginated[api.Secret](client, "/apisix/admin/secrets")
 	if err != nil {
-		if !cmdutil.IsOptionalResourceError(err) {
-			return fmt.Errorf("%s", cmdutil.FormatAPIError(err))
-		}
-		secretItems = nil
+		return fmt.Errorf("%s", cmdutil.FormatAPIError(err))
 	}
 
 	routes := make([]api.Route, 0, len(routeItems))
@@ -258,6 +249,13 @@ func fetchPaginated[T any](client *api.Client, path string) ([]api.ListItem[T], 
 			"page_size": fmt.Sprintf("%d", pageSize),
 		})
 		if err != nil {
+			// Some resource endpoints return 404 or 400 when the feature
+			// is not enabled (e.g., stream_routes without stream proxy,
+			// protos, secrets, consumer_groups in older versions). Treat
+			// these as empty collections rather than fatal errors.
+			if cmdutil.IsOptionalResourceError(err) {
+				return nil, nil
+			}
 			return nil, err
 		}
 
@@ -279,6 +277,9 @@ func fetchPaginated[T any](client *api.Client, path string) ([]api.ListItem[T], 
 func fetchPluginMetadata(client *api.Client) ([]api.PluginMetadataEntry, error) {
 	body, err := client.Get("/apisix/admin/plugins/list", nil)
 	if err != nil {
+		if cmdutil.IsOptionalResourceError(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 

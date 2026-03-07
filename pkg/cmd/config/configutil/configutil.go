@@ -142,24 +142,15 @@ func FetchRemoteConfig(client *api.Client) (*api.ConfigFile, error) {
 	}
 	streamRouteItems, err := fetchPaginated[api.StreamRoute](client, "/apisix/admin/stream_routes")
 	if err != nil {
-		if !cmdutil.IsOptionalResourceError(err) {
-			return nil, err
-		}
-		streamRouteItems = nil
+		return nil, err
 	}
 	protoItems, err := fetchPaginated[api.Proto](client, "/apisix/admin/protos")
 	if err != nil {
-		if !cmdutil.IsOptionalResourceError(err) {
-			return nil, err
-		}
-		protoItems = nil
+		return nil, err
 	}
 	secretItems, err := fetchPaginated[api.Secret](client, "/apisix/admin/secrets")
 	if err != nil {
-		if !cmdutil.IsOptionalResourceError(err) {
-			return nil, err
-		}
-		secretItems = nil
+		return nil, err
 	}
 
 	routes := make([]api.Route, 0, len(routeItems))
@@ -590,6 +581,9 @@ func fetchPaginated[T any](client *api.Client, path string) ([]api.ListItem[T], 
 			"page_size": fmt.Sprintf("%d", pageSize),
 		})
 		if err != nil {
+			if cmdutil.IsOptionalResourceError(err) {
+				return nil, nil
+			}
 			return nil, err
 		}
 
@@ -611,6 +605,9 @@ func fetchPaginated[T any](client *api.Client, path string) ([]api.ListItem[T], 
 func fetchPluginMetadata(client *api.Client) ([]api.PluginMetadataEntry, error) {
 	body, err := client.Get("/apisix/admin/plugins/list", nil)
 	if err != nil {
+		if cmdutil.IsOptionalResourceError(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
