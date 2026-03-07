@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/api7/a6/pkg/cmd"
+	consumerCmd "github.com/api7/a6/pkg/cmd/consumer"
 	contextCmd "github.com/api7/a6/pkg/cmd/context"
 	routeCmd "github.com/api7/a6/pkg/cmd/route"
 	serviceCmd "github.com/api7/a6/pkg/cmd/service"
@@ -29,6 +30,7 @@ func NewCmdRoot(f *cmd.Factory) *cobra.Command {
 	rootCmd.PersistentFlags().Bool("force", false, "Skip confirmation prompts")
 
 	// Command groups.
+	rootCmd.AddCommand(consumerCmd.NewCmdConsumer(f))
 	rootCmd.AddCommand(contextCmd.NewCmdContext(f))
 	rootCmd.AddCommand(routeCmd.NewCmdRoute(f))
 	rootCmd.AddCommand(serviceCmd.NewCmdService(f))
