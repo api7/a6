@@ -1,7 +1,7 @@
 # Binaries
 /bin/
 /dist/
-a6
+/a6
 *.exe
 *.exe~
 *.dll
