@@ -60,7 +60,7 @@ func TestStreamRouteGet_YAML(t *testing.T) {
 	require.NoError(t, err)
 	output := stdout.String()
 	assert.Contains(t, output, "name: tcp-route-1")
-	assert.Contains(t, output, "serverport: 9100")
+	assert.Contains(t, output, "server_port: 9100")
 	reg.Verify(t)
 }
 
