@@ -61,6 +61,67 @@ a6 route list
 
 If the connection is successful, you will see a list of your existing routes.
 
+## Your First Route
+
+Once you have a working context, you can start managing routes.
+
+### 1. Create a Route Configuration
+
+Create a file named `route.json` with the following content:
+
+```json
+{
+  "id": "getting-started",
+  "name": "getting-started-route",
+  "uri": "/get",
+  "methods": ["GET"],
+  "upstream": {
+    "type": "roundrobin",
+    "nodes": {
+      "httpbin.org:80": 1
+    }
+  }
+}
+```
+
+### 2. Apply the Route
+
+Use the `route create` command to send this configuration to APISIX:
+
+```bash
+a6 route create -f route.json
+```
+
+### 3. Verify the Route
+
+List your routes to see the new entry:
+
+```bash
+a6 route list
+```
+
+You can also get the full details of the route you just created:
+
+```bash
+a6 route get getting-started
+```
+
+### 4. Test the Route
+
+Assuming your APISIX gateway is running and listening for data plane traffic (default port 9080), you can test the route with `curl`:
+
+```bash
+curl -i http://localhost:9080/get
+```
+
+### 5. Clean Up
+
+When you are done, you can delete the route:
+
+```bash
+a6 route delete getting-started --force
+```
+
 ## Managing Multiple Contexts
 
 You can create multiple contexts for different environments like staging or production.
@@ -104,4 +165,4 @@ a6 context current
 ## What's Next
 
 - Check the [Configuration Guide](configuration.md) for detailed configuration options.
-- More CRUD commands for routes and upstreams are coming soon.
+- See the [Route Management Guide](route.md) for comprehensive route CRUD operations.
