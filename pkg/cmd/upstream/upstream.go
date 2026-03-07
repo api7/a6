@@ -7,6 +7,7 @@ import (
 	"github.com/api7/a6/pkg/cmd/upstream/create"
 	deletecmd "github.com/api7/a6/pkg/cmd/upstream/delete"
 	"github.com/api7/a6/pkg/cmd/upstream/get"
+	"github.com/api7/a6/pkg/cmd/upstream/health"
 	"github.com/api7/a6/pkg/cmd/upstream/list"
 	"github.com/api7/a6/pkg/cmd/upstream/update"
 )
@@ -20,6 +21,7 @@ func NewCmdUpstream(f *cmd.Factory) *cobra.Command {
 
 	cmd.AddCommand(list.NewCmdList(f))
 	cmd.AddCommand(get.NewCmdGet(f))
+	cmd.AddCommand(health.NewCmdHealth(f))
 	cmd.AddCommand(create.NewCmdCreate(f))
 	cmd.AddCommand(update.NewCmdUpdate(f))
 	cmd.AddCommand(deletecmd.NewCmdDelete(f))

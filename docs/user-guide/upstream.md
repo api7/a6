@@ -127,6 +127,45 @@ Delete upstream without confirmation:
 a6 upstream delete 1 --force
 ```
 
+### `a6 upstream health`
+
+Shows the health check status of upstream nodes. This command queries the APISIX Control API to retrieve the current health status of all nodes in an upstream.
+
+**Prerequisites:**
+- The upstream must have health checks configured (via the `checks` field)
+- The upstream must have served at least one request
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--output` | `-o` | `table` | Output format (table, json, yaml) |
+| `--control-url` | | | Override the APISIX Control API URL (default: derived from server URL, port 9090) |
+
+**Examples:**
+
+Check upstream health status:
+```bash
+a6 upstream health 1
+```
+
+Output in JSON format:
+```bash
+a6 upstream health 1 -o json
+```
+
+Use a custom Control API URL:
+```bash
+a6 upstream health 1 --control-url http://apisix-control:9090
+```
+
+**Sample output:**
+```
+NODE             STATUS     SUCCESS  HTTP_FAIL  TCP_FAIL  TIMEOUT
+52.86.68.46:80   healthy    2        0          0         0
+100.24.156.8:80  unhealthy  0        5          0         0
+
+Type: http
+```
+
 ## Upstream Configuration Reference
 
 Key fields in the upstream configuration:

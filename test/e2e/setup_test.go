@@ -27,6 +27,7 @@ var (
 	binaryPath string
 	adminURL   string
 	gatewayURL string
+	controlURL string
 	httpbinURL string
 	adminKey   = "edd1c9f034335f136f87ad84b625c8f1"
 )
@@ -34,6 +35,7 @@ var (
 func TestMain(m *testing.M) {
 	adminURL = envOrDefault("APISIX_ADMIN_URL", "http://127.0.0.1:9180")
 	gatewayURL = envOrDefault("APISIX_GATEWAY_URL", "http://127.0.0.1:9080")
+	controlURL = envOrDefault("APISIX_CONTROL_URL", "http://127.0.0.1:9090")
 	httpbinURL = envOrDefault("HTTPBIN_URL", "http://127.0.0.1:8080")
 
 	// Build the a6 binary into a temp directory.
