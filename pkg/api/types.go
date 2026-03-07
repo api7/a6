@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 )
 
@@ -9,6 +10,26 @@ import (
 type ListResponse[T any] struct {
 	Total int           `json:"total"`
 	List  []ListItem[T] `json:"list"`
+}
+
+// UnmarshalJSON handles APISIX returning {"list": {}} (empty object) for
+// empty results instead of the standard {"list": []} (empty array).
+func (r *ListResponse[T]) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Total int             `json:"total"`
+		List  json.RawMessage `json:"list"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	r.Total = raw.Total
+
+	if len(raw.List) == 0 || string(raw.List) == "null" || string(raw.List) == "{}" {
+		r.List = nil
+		return nil
+	}
+
+	return json.Unmarshal(raw.List, &r.List)
 }
 
 // ListItem wraps a single resource in a list response.

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -272,9 +273,17 @@ func TestRoute_TrafficForwarding(t *testing.T) {
 	resp.Body.Close()
 	require.Less(t, resp.StatusCode, 400, "failed to create traffic test route")
 
-	// Send a request through the APISIX gateway.
-	gwResp, err := http.Get(gatewayURL + "/test-e2e-traffic/get")
-	require.NoError(t, err, "gateway request should succeed")
+	// Retry to allow APISIX to propagate the route config from etcd.
+	var gwResp *http.Response
+	for i := 0; i < 10; i++ {
+		gwResp, err = http.Get(gatewayURL + "/test-e2e-traffic/get")
+		require.NoError(t, err, "gateway request should succeed")
+		if gwResp.StatusCode == http.StatusOK {
+			break
+		}
+		gwResp.Body.Close()
+		time.Sleep(500 * time.Millisecond)
+	}
 	defer gwResp.Body.Close()
 	assert.Equal(t, http.StatusOK, gwResp.StatusCode, "gateway should return 200 for proxied request")
 }

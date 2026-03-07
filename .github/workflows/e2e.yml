@@ -71,6 +71,20 @@ jobs:
           docker logs apisix
           exit 1
 
+      - name: Wait for httpbin
+        run: |
+          for i in $(seq 1 15); do
+            if curl -sf http://127.0.0.1:8080/get > /dev/null 2>&1; then
+              echo "httpbin is ready"
+              exit 0
+            fi
+            echo "Waiting for httpbin... ($i/15)"
+            sleep 2
+          done
+          echo "httpbin failed to start"
+          docker logs httpbin
+          exit 1
+
       - name: Run E2E tests
         run: go test -v -tags e2e -count=1 -timeout 5m ./test/e2e/...
 
