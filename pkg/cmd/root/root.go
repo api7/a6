@@ -6,6 +6,7 @@ import (
 	"github.com/api7/a6/pkg/cmd"
 	consumerCmd "github.com/api7/a6/pkg/cmd/consumer"
 	contextCmd "github.com/api7/a6/pkg/cmd/context"
+	pluginCmd "github.com/api7/a6/pkg/cmd/plugin"
 	routeCmd "github.com/api7/a6/pkg/cmd/route"
 	serviceCmd "github.com/api7/a6/pkg/cmd/service"
 	sslCmd "github.com/api7/a6/pkg/cmd/ssl"
@@ -33,6 +34,7 @@ func NewCmdRoot(f *cmd.Factory) *cobra.Command {
 	// Command groups.
 	rootCmd.AddCommand(consumerCmd.NewCmdConsumer(f))
 	rootCmd.AddCommand(contextCmd.NewCmdContext(f))
+	rootCmd.AddCommand(pluginCmd.NewCmdPlugin(f))
 	rootCmd.AddCommand(routeCmd.NewCmdRoute(f))
 	rootCmd.AddCommand(serviceCmd.NewCmdService(f))
 	rootCmd.AddCommand(sslCmd.NewCmdSSL(f))
