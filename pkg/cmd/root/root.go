@@ -6,9 +6,12 @@ import (
 	"github.com/api7/a6/pkg/cmd"
 	"github.com/api7/a6/pkg/cmd/completion"
 	consumerCmd "github.com/api7/a6/pkg/cmd/consumer"
+	consumergroupCmd "github.com/api7/a6/pkg/cmd/consumergroup"
 	contextCmd "github.com/api7/a6/pkg/cmd/context"
 	globalruleCmd "github.com/api7/a6/pkg/cmd/globalrule"
 	pluginCmd "github.com/api7/a6/pkg/cmd/plugin"
+	pluginconfigCmd "github.com/api7/a6/pkg/cmd/pluginconfig"
+	pluginmetadataCmd "github.com/api7/a6/pkg/cmd/pluginmetadata"
 	protoCmd "github.com/api7/a6/pkg/cmd/proto"
 	routeCmd "github.com/api7/a6/pkg/cmd/route"
 	serviceCmd "github.com/api7/a6/pkg/cmd/service"
@@ -39,9 +42,12 @@ func NewCmdRoot(f *cmd.Factory) *cobra.Command {
 	// Command groups.
 	rootCmd.AddCommand(completion.NewCmdCompletion())
 	rootCmd.AddCommand(consumerCmd.NewCmdConsumer(f))
+	rootCmd.AddCommand(consumergroupCmd.NewCmdConsumerGroup(f))
 	rootCmd.AddCommand(contextCmd.NewCmdContext(f))
 	rootCmd.AddCommand(globalruleCmd.NewCmdGlobalRule(f))
 	rootCmd.AddCommand(pluginCmd.NewCmdPlugin(f))
+	rootCmd.AddCommand(pluginconfigCmd.NewCmdPluginConfig(f))
+	rootCmd.AddCommand(pluginmetadataCmd.NewCmdPluginMetadata(f))
 	rootCmd.AddCommand(protoCmd.NewCmdProto(f))
 	rootCmd.AddCommand(routeCmd.NewCmdRoute(f))
 	rootCmd.AddCommand(serviceCmd.NewCmdService(f))
