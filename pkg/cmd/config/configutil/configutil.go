@@ -70,19 +70,20 @@ func (r *DiffResult) Sections() []DiffSection {
 	if r == nil {
 		return nil
 	}
+	// Order: base resources first, then dependents (routes reference upstreams/services).
 	return []DiffSection{
-		{Name: "routes", Diff: r.Routes},
-		{Name: "services", Diff: r.Services},
 		{Name: "upstreams", Diff: r.Upstreams},
+		{Name: "services", Diff: r.Services},
 		{Name: "consumers", Diff: r.Consumers},
+		{Name: "consumer_groups", Diff: r.ConsumerGroups},
+		{Name: "plugin_configs", Diff: r.PluginConfigs},
 		{Name: "ssl", Diff: r.SSL},
 		{Name: "global_rules", Diff: r.GlobalRules},
-		{Name: "plugin_configs", Diff: r.PluginConfigs},
-		{Name: "consumer_groups", Diff: r.ConsumerGroups},
-		{Name: "stream_routes", Diff: r.StreamRoutes},
 		{Name: "protos", Diff: r.Protos},
 		{Name: "secrets", Diff: r.Secrets},
 		{Name: "plugin_metadata", Diff: r.PluginMetadata},
+		{Name: "routes", Diff: r.Routes},
+		{Name: "stream_routes", Diff: r.StreamRoutes},
 	}
 }
 

@@ -130,9 +130,10 @@ func applyAllUpdates(client *api.Client, result *configutil.DiffResult) error {
 }
 
 func applyAllDeletes(client *api.Client, result *configutil.DiffResult) error {
-	for _, section := range result.Sections() {
-		for _, item := range section.Diff.Delete {
-			if err := deleteResource(client, section.Name, item.Key); err != nil {
+	sections := result.Sections()
+	for i := len(sections) - 1; i >= 0; i-- {
+		for _, item := range sections[i].Diff.Delete {
+			if err := deleteResource(client, sections[i].Name, item.Key); err != nil {
 				return err
 			}
 		}
