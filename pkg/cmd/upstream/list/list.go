@@ -76,7 +76,7 @@ func listRun(opts *Options) error {
 		query["name"] = opts.Name
 	}
 	if opts.Label != "" {
-		query["label"] = opts.Label
+		query["label"] = cmdutil.NormalizeLabel(opts.Label)
 	}
 
 	body, err := client.Get("/apisix/admin/upstreams", query)

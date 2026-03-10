@@ -3,6 +3,7 @@ package cmdutil
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/api7/a6/pkg/api"
 )
@@ -78,4 +79,16 @@ func IsOptionalResourceError(err error) bool {
 		return false
 	}
 	return apiErr.StatusCode == 400 || apiErr.StatusCode == 404
+}
+
+// NormalizeLabel converts "key=value" to "key:value" for the APISIX Admin API.
+func NormalizeLabel(label string) string {
+	if label == "" {
+		return ""
+	}
+	parts := strings.SplitN(label, "=", 2)
+	if len(parts) == 2 {
+		return parts[0] + ":" + parts[1]
+	}
+	return label
 }

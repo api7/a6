@@ -109,7 +109,7 @@ func fetchAll(client *api.Client, label string) ([]api.ListItem[api.PluginConfig
 			"page_size": fmt.Sprintf("%d", pageSize),
 		}
 		if label != "" {
-			query["label"] = label
+			query["label"] = cmdutil.NormalizeLabel(label)
 		}
 
 		body, err := client.Get("/apisix/admin/plugin_configs", query)

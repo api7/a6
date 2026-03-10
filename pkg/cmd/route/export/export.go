@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -104,22 +103,15 @@ func fetchAll(client *api.Client, label string) ([]api.ListItem[api.Route], erro
 	pageSize := 500
 	items := make([]api.ListItem[api.Route], 0)
 
-	var labelKey, labelValue string
-	if label != "" {
-		parts := strings.SplitN(label, "=", 2)
-		labelKey = parts[0]
-		if len(parts) == 2 {
-			labelValue = parts[1]
-		}
-	}
+	apiLabel := cmdutil.NormalizeLabel(label)
 
 	for {
 		query := map[string]string{
 			"page":      fmt.Sprintf("%d", page),
 			"page_size": fmt.Sprintf("%d", pageSize),
 		}
-		if labelKey != "" {
-			query["label"] = labelKey
+		if apiLabel != "" {
+			query["label"] = apiLabel
 		}
 
 		body, err := client.Get("/apisix/admin/routes", query)
@@ -132,14 +124,7 @@ func fetchAll(client *api.Client, label string) ([]api.ListItem[api.Route], erro
 			return nil, fmt.Errorf("failed to parse response: %w", err)
 		}
 
-		for _, item := range resp.List {
-			if labelValue != "" && item.Value.Labels != nil {
-				if v, ok := item.Value.Labels[labelKey]; !ok || v != labelValue {
-					continue
-				}
-			}
-			items = append(items, item)
-		}
+		items = append(items, resp.List...)
 
 		if len(resp.List) == 0 || page*pageSize >= resp.Total {
 			break
