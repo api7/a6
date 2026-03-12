@@ -84,11 +84,11 @@ func TestSkillPersonaDeveloper(t *testing.T) {
 
 	stdout, _, err = runA6WithEnv(env, "plugin", "list")
 	require.NoError(t, err)
-	assert.Contains(t, stdout, `"key"`)
+	assert.Contains(t, stdout, "key-auth")
 
 	stdout, _, err = runA6WithEnv(env, "plugin", "get", "key-auth", "--output", "json")
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "key-auth")
+	assert.Contains(t, stdout, "header")
 
 	stdout, stderr, err = runA6WithEnv(env, "route", "delete", svcRouteID, "--force")
 	require.NoError(t, err, "route delete: stdout=%s stderr=%s", stdout, stderr)
