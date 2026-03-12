@@ -44,6 +44,9 @@ func TestSkillRecipeMultiTenant(t *testing.T) {
 				"time_window": 86400,
 				"key_type": "var",
 				"key": "consumer_name"
+			},
+			"proxy-rewrite": {
+				"uri": "/get"
 			}
 		},
 		"upstream": {"type": "roundrobin", "nodes": {"127.0.0.1:8080": 1}}

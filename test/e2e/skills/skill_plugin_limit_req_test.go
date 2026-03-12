@@ -17,7 +17,7 @@ func TestSkillPluginLimitReq(t *testing.T) {
 	_, _, _ = runA6WithEnv(env, "route", "delete", routeID, "--force")
 	t.Cleanup(func() { cleanupRoute(t, routeID) })
 
-	routeJSON := `{"id":"skill-limit-req-route","uri":"/skill-limit-req","plugins":{"limit-req":{"rate":1,"burst":0,"rejected_code":429,"key_type":"var","key":"remote_addr","nodelay":true}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
+	routeJSON := `{"id":"skill-limit-req-route","uri":"/skill-limit-req","plugins":{"limit-req":{"rate":1,"burst":0,"rejected_code":429,"key_type":"var","key":"remote_addr","nodelay":true},"proxy-rewrite":{"uri":"/get"}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
 	routeFile := writeJSON(t, "route", routeJSON)
 	stdout, stderr, err := runA6WithEnv(env, "route", "create", "-f", routeFile)
 	require.NoError(t, err, "route create: stdout=%s stderr=%s", stdout, stderr)

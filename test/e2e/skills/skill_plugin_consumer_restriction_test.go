@@ -33,7 +33,7 @@ func TestSkillPluginConsumerRestriction(t *testing.T) {
 	stdout, stderr, err = runA6WithEnv(env, "consumer", "create", "-f", deniedFile)
 	require.NoError(t, err, "denied consumer create: stdout=%s stderr=%s", stdout, stderr)
 
-	routeJSON := `{"id":"skill-consumer-restrict-route","uri":"/skill-consumer-restrict","plugins":{"key-auth":{},"consumer-restriction":{"whitelist":["skill-allowed-user"]}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
+	routeJSON := `{"id":"skill-consumer-restrict-route","uri":"/skill-consumer-restrict","plugins":{"key-auth":{},"consumer-restriction":{"whitelist":["skill-allowed-user"]},"proxy-rewrite":{"uri":"/get"}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
 	routeFile := writeJSON(t, "route", routeJSON)
 	stdout, stderr, err = runA6WithEnv(env, "route", "create", "-f", routeFile)
 	require.NoError(t, err, "route create: stdout=%s stderr=%s", stdout, stderr)

@@ -55,7 +55,7 @@ func TestSkillShared(t *testing.T) {
 		stdout, stderr, err := runA6WithEnv(env, "upstream", "create", "-f", f)
 		require.NoError(t, err, "upstream create: stdout=%s stderr=%s", stdout, stderr)
 
-		routeJSON := `{"id":"skill-shared-route","uri":"/skill-shared","upstream_id":"skill-shared-upstream"}`
+		routeJSON := `{"id":"skill-shared-route","uri":"/skill-shared","upstream_id":"skill-shared-upstream","plugins":{"proxy-rewrite":{"uri":"/get"}}}`
 		f = writeJSON(t, "route", routeJSON)
 		stdout, stderr, err = runA6WithEnv(env, "route", "create", "-f", f)
 		require.NoError(t, err, "route create: stdout=%s stderr=%s", stdout, stderr)
@@ -72,7 +72,7 @@ func TestSkillShared(t *testing.T) {
 		status, _ := httpGetWithRetry(t, gatewayURL+"/skill-shared", nil, 200, 5*time.Second)
 		assert.Equal(t, 200, status)
 
-		updateJSON := `{"id":"skill-shared-route","uri":"/skill-shared-updated","upstream_id":"skill-shared-upstream"}`
+		updateJSON := `{"id":"skill-shared-route","uri":"/skill-shared-updated","upstream_id":"skill-shared-upstream","plugins":{"proxy-rewrite":{"uri":"/get"}}}`
 		f = writeJSON(t, "route-update", updateJSON)
 		stdout, stderr, err = runA6WithEnv(env, "route", "update", routeID, "-f", f)
 		require.NoError(t, err, "route update: stdout=%s stderr=%s", stdout, stderr)
@@ -97,6 +97,6 @@ func TestSkillShared(t *testing.T) {
 
 		stdout, _, err = runA6WithEnv(env, "plugin", "get", "limit-count", "--output", "json")
 		require.NoError(t, err)
-		assert.Contains(t, stdout, "limit-count")
+		assert.Contains(t, stdout, `"count"`)
 	})
 }

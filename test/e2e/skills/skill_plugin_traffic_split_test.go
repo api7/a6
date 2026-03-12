@@ -29,7 +29,7 @@ func TestSkillPluginTrafficSplit(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, stdout, `"skill-traffic-upstream"`)
 
-	routeJSON := `{"id":"skill-traffic-split-route","uri":"/skill-traffic-split","plugins":{"traffic-split":{"rules":[{"weighted_upstreams":[{"upstream_id":"skill-traffic-upstream","weight":100}]}]}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
+	routeJSON := `{"id":"skill-traffic-split-route","uri":"/skill-traffic-split","plugins":{"traffic-split":{"rules":[{"weighted_upstreams":[{"upstream_id":"skill-traffic-upstream","weight":100}]}]},"proxy-rewrite":{"uri":"/get"}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
 	routeFile := writeJSON(t, "route", routeJSON)
 	stdout, stderr, err = runA6WithEnv(env, "route", "create", "-f", routeFile)
 	require.NoError(t, err, "route create: stdout=%s stderr=%s", stdout, stderr)

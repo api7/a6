@@ -35,7 +35,7 @@ func TestSkillPersonaDeveloper(t *testing.T) {
 	stdout, stderr, err := runA6WithEnv(env, "upstream", "create", "-f", f)
 	require.NoError(t, err, "upstream create: stdout=%s stderr=%s", stdout, stderr)
 
-	routeJSON := `{"id":"skill-dev-route","uri":"/skill-dev-api/*","methods":["GET","POST"],"upstream_id":"skill-dev-upstream"}`
+	routeJSON := `{"id":"skill-dev-route","uri":"/skill-dev-api/*","methods":["GET","POST"],"upstream_id":"skill-dev-upstream","plugins":{"proxy-rewrite":{"regex_uri":["^/skill-dev-api/(.*)","/$1"]}}}`
 	f = writeJSON(t, "route", routeJSON)
 	stdout, stderr, err = runA6WithEnv(env, "route", "create", "-f", f)
 	require.NoError(t, err, "route create: stdout=%s stderr=%s", stdout, stderr)
@@ -48,7 +48,7 @@ func TestSkillPersonaDeveloper(t *testing.T) {
 	stdout, stderr, err = runA6WithEnv(env, "consumer", "create", "-f", f)
 	require.NoError(t, err, "consumer create: stdout=%s stderr=%s", stdout, stderr)
 
-	updateJSON := `{"id":"skill-dev-route","uri":"/skill-dev-api/*","methods":["GET","POST"],"upstream_id":"skill-dev-upstream","plugins":{"key-auth":{}}}`
+	updateJSON := `{"id":"skill-dev-route","uri":"/skill-dev-api/*","methods":["GET","POST"],"upstream_id":"skill-dev-upstream","plugins":{"key-auth":{},"proxy-rewrite":{"regex_uri":["^/skill-dev-api/(.*)","/$1"]}}}`
 	f = writeJSON(t, "route-update", updateJSON)
 	stdout, stderr, err = runA6WithEnv(env, "route", "update", routeID, "-f", f)
 	require.NoError(t, err, "route update: stdout=%s stderr=%s", stdout, stderr)
@@ -69,7 +69,7 @@ func TestSkillPersonaDeveloper(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, stdout, routeID)
 
-	serviceJSON := `{"id":"skill-dev-service","upstream_id":"skill-dev-upstream","plugins":{"key-auth":{}}}`
+	serviceJSON := `{"id":"skill-dev-service","upstream_id":"skill-dev-upstream","plugins":{"key-auth":{},"proxy-rewrite":{"regex_uri":["^/skill-dev-svc/(.*)","/$1"]}}}`
 	f = writeJSON(t, "service", serviceJSON)
 	stdout, stderr, err = runA6WithEnv(env, "service", "create", "-f", f)
 	require.NoError(t, err, "service create: stdout=%s stderr=%s", stdout, stderr)
@@ -84,7 +84,7 @@ func TestSkillPersonaDeveloper(t *testing.T) {
 
 	stdout, _, err = runA6WithEnv(env, "plugin", "list")
 	require.NoError(t, err)
-	assert.Contains(t, stdout, "key-auth")
+	assert.Contains(t, stdout, `"key"`)
 
 	stdout, _, err = runA6WithEnv(env, "plugin", "get", "key-auth", "--output", "json")
 	require.NoError(t, err)

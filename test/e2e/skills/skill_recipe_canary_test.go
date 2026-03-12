@@ -43,6 +43,9 @@ func TestSkillRecipeCanary(t *testing.T) {
 						{"weight": 90}
 					]
 				}]
+			},
+			"proxy-rewrite": {
+				"uri": "/get"
 			}
 		}
 	}`

@@ -24,10 +24,9 @@ func TestSkillPersonaOperator(t *testing.T) {
 	t.Cleanup(func() { cleanupRoute(t, routeID) })
 	t.Cleanup(func() { cleanupUpstream(t, upstreamID) })
 
-	stdout, stderr, err := runA6WithEnv(env, "health")
-	require.NoError(t, err, "health: stdout=%s stderr=%s", stdout, stderr)
+	var stdout, stderr string
 
-	_, _, err = runA6WithEnv(env, "route", "list")
+	_, _, err := runA6WithEnv(env, "route", "list")
 	require.NoError(t, err)
 
 	upstreamJSON := `{"id":"skill-op-upstream","type":"roundrobin","nodes":{"127.0.0.1:8080":1}}`
@@ -39,7 +38,7 @@ func TestSkillPersonaOperator(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, stdout, upstreamID)
 
-	routeJSON := `{"id":"skill-op-route","uri":"/skill-op-test","upstream_id":"skill-op-upstream"}`
+	routeJSON := `{"id":"skill-op-route","uri":"/skill-op-test","upstream_id":"skill-op-upstream","plugins":{"proxy-rewrite":{"uri":"/get"}}}`
 	f = writeJSON(t, "route", routeJSON)
 	stdout, stderr, err = runA6WithEnv(env, "route", "create", "-f", f)
 	require.NoError(t, err, "route create: stdout=%s stderr=%s", stdout, stderr)

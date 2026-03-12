@@ -17,7 +17,7 @@ func TestSkillPluginIPRestriction(t *testing.T) {
 	_, _, _ = runA6WithEnv(env, "route", "delete", routeID, "--force")
 	t.Cleanup(func() { cleanupRoute(t, routeID) })
 
-	routeJSON := `{"id":"skill-ip-restrict-route","uri":"/skill-ip-restrict","plugins":{"ip-restriction":{"whitelist":["192.168.99.99"]}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
+	routeJSON := `{"id":"skill-ip-restrict-route","uri":"/skill-ip-restrict","plugins":{"ip-restriction":{"whitelist":["192.168.99.99"]},"proxy-rewrite":{"uri":"/get"}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
 	routeFile := writeJSON(t, "route", routeJSON)
 	stdout, stderr, err := runA6WithEnv(env, "route", "create", "-f", routeFile)
 	require.NoError(t, err, "route create: stdout=%s stderr=%s", stdout, stderr)
@@ -29,7 +29,7 @@ func TestSkillPluginIPRestriction(t *testing.T) {
 	status, _ := httpGetWithRetry(t, gatewayURL+"/skill-ip-restrict", nil, 403, 5*time.Second)
 	assert.Equal(t, 403, status)
 
-	routeUpdateJSON := `{"id":"skill-ip-restrict-route","uri":"/skill-ip-restrict","plugins":{"ip-restriction":{"whitelist":["0.0.0.0/0"]}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
+	routeUpdateJSON := `{"id":"skill-ip-restrict-route","uri":"/skill-ip-restrict","plugins":{"ip-restriction":{"whitelist":["0.0.0.0/0"]},"proxy-rewrite":{"uri":"/get"}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
 	routeUpdateFile := writeJSON(t, "route-update", routeUpdateJSON)
 	stdout, stderr, err = runA6WithEnv(env, "route", "update", routeID, "-f", routeUpdateFile)
 	require.NoError(t, err, "route update: stdout=%s stderr=%s", stdout, stderr)

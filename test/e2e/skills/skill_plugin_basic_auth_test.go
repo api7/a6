@@ -25,7 +25,7 @@ func TestSkillPluginBasicAuth(t *testing.T) {
 	stdout, stderr, err := runA6WithEnv(env, "consumer", "create", "-f", consumerFile)
 	require.NoError(t, err, "consumer create: stdout=%s stderr=%s", stdout, stderr)
 
-	routeJSON := `{"id":"skill-basic-auth-route","uri":"/skill-basic-auth","plugins":{"basic-auth":{}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
+	routeJSON := `{"id":"skill-basic-auth-route","uri":"/skill-basic-auth","plugins":{"basic-auth":{},"proxy-rewrite":{"uri":"/get"}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
 	routeFile := writeJSON(t, "route", routeJSON)
 	stdout, stderr, err = runA6WithEnv(env, "route", "create", "-f", routeFile)
 	require.NoError(t, err, "route create: stdout=%s stderr=%s", stdout, stderr)

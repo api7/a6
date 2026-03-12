@@ -18,7 +18,7 @@ func TestSkillPluginCORS(t *testing.T) {
 	_, _, _ = runA6WithEnv(env, "route", "delete", routeID, "--force")
 	t.Cleanup(func() { cleanupRoute(t, routeID) })
 
-	routeJSON := `{"id":"skill-cors-route","uri":"/skill-cors","plugins":{"cors":{"allow_origins":"http://example.com","allow_methods":"GET,POST","allow_headers":"Content-Type","max_age":3600}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
+	routeJSON := `{"id":"skill-cors-route","uri":"/skill-cors","plugins":{"cors":{"allow_origins":"http://example.com","allow_methods":"GET,POST","allow_headers":"Content-Type","max_age":3600},"proxy-rewrite":{"uri":"/get"}},"upstream":{"type":"roundrobin","nodes":{"127.0.0.1:8080":1}}}`
 	routeFile := writeJSON(t, "route", routeJSON)
 	stdout, stderr, err := runA6WithEnv(env, "route", "create", "-f", routeFile)
 	require.NoError(t, err, "route create: stdout=%s stderr=%s", stdout, stderr)

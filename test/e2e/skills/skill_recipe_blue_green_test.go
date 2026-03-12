@@ -44,6 +44,9 @@ func TestSkillRecipeBlueGreen(t *testing.T) {
 						{"upstream_id": "skill-green-upstream", "weight": 100}
 					]
 				}]
+			},
+			"proxy-rewrite": {
+				"uri": "/get"
 			}
 		}
 	}`
