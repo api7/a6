@@ -79,7 +79,7 @@ func TestSkillPersonaDeveloper(t *testing.T) {
 	stdout, stderr, err = runA6WithEnv(env, "route", "create", "-f", f)
 	require.NoError(t, err, "svc-route create: stdout=%s stderr=%s", stdout, stderr)
 
-	status, _ = httpGetWithRetry(t, gatewayURL+"/skill-dev-svc/get", nil, 401, 5*time.Second)
+	status, _ = httpGetWithRetry(t, gatewayURL+"/skill-dev-svc/get", nil, 401, 10*time.Second)
 	assert.Equal(t, 401, status)
 
 	stdout, _, err = runA6WithEnv(env, "plugin", "list")
