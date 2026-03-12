@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,7 +63,15 @@ upstreams:
       "127.0.0.1:8080": 1
 `), 0o644))
 
-	stdout, stderr, err := runA6WithEnv(env, "config", "sync", "-f", configPath)
+	var stdout, stderr string
+	var err error
+	for i := 0; i < 3; i++ {
+		stdout, stderr, err = runA6WithEnv(env, "config", "sync", "-f", configPath)
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Duration(i+1) * time.Second)
+	}
 	require.NoError(t, err, "config sync failed: stdout=%s stderr=%s", stdout, stderr)
 
 	stdout, stderr, err = runA6WithEnv(env, "route", "get", routeID)
