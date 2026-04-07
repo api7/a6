@@ -50,3 +50,16 @@ func TestLogs_NoContainerNoFile(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no APISIX container found")
 }
+
+func TestLogs_ChooseContainerSingle(t *testing.T) {
+	container, err := chooseContainer([]string{"apisix"})
+	require.NoError(t, err)
+	assert.Equal(t, "apisix", container)
+}
+
+func TestLogs_ChooseContainerMultiple(t *testing.T) {
+	_, err := chooseContainer([]string{"apisix", "apisix-staging"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "multiple APISIX containers found")
+	assert.Contains(t, err.Error(), "apisix, apisix-staging")
+}
