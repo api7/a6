@@ -18,9 +18,6 @@ func SelectOne(title string, items []Item) (string, error) {
 	if len(items) == 0 {
 		return "", fmt.Errorf("no items available")
 	}
-	if !isTerminalStdin() {
-		return "", fmt.Errorf("interactive selection requires a terminal")
-	}
 
 	options := make([]huh.Option[string], 0, len(items))
 	for _, item := range items {
@@ -35,6 +32,9 @@ func SelectOne(title string, items []Item) (string, error) {
 	}
 	if len(options) == 0 {
 		return "", fmt.Errorf("no items available")
+	}
+	if !isTerminalStdin() {
+		return "", fmt.Errorf("interactive selection requires a terminal")
 	}
 
 	height := len(options) + 2
