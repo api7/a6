@@ -17,6 +17,8 @@ import (
 )
 
 func TestNewCmdRoot_RegistersCoreCommandsAndFlags(t *testing.T) {
+	t.Setenv("A6_CONFIG_DIR", t.TempDir())
+
 	ios, _, _, _ := iostreams.Test()
 
 	rootCmd := NewCmdRoot(&cmd.Factory{IOStreams: ios})
@@ -47,7 +49,10 @@ func TestNewCmdRoot_RegistersCoreCommandsAndFlags(t *testing.T) {
 	} {
 		found, _, err := rootCmd.Find([]string{name})
 		require.NoError(t, err)
-		assert.NotNil(t, found)
+		require.NotNil(t, found)
+		assert.NotSame(t, rootCmd, found)
+		assert.Equal(t, name, found.Name())
+		assert.True(t, strings.HasPrefix(found.Use, name))
 	}
 }
 
@@ -87,10 +92,10 @@ func TestNewCmdRoot_LoadsAndExecutesExtensionCommands(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "arg-one arg-two", strings.TrimSpace(string(content)))
 
-	cmd, _, err := rootCmd.Find([]string{"hello"})
+	foundCmd, _, err := rootCmd.Find([]string{"hello"})
 	require.NoError(t, err)
-	assert.Equal(t, "extension", cmd.GroupID)
-	assert.Equal(t, "test extension", cmd.Short)
+	assert.Equal(t, "extension", foundCmd.GroupID)
+	assert.Equal(t, "test extension", foundCmd.Short)
 }
 
 func writeManifest(path string, manifest extension.Manifest) error {
