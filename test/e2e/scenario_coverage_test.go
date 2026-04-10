@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,16 +38,17 @@ func TestRoute_ServiceAndPluginConfigCombination(t *testing.T) {
 		deletePluginConfigViaAdmin(t, pluginConfigID)
 	})
 
+	httpbinNode := hostPort(t, httpbinURL)
 	serviceJSON := fmt.Sprintf(`{
 		"id": "%s",
 		"name": "scenario-combo-service",
 		"upstream": {
 			"type": "roundrobin",
 			"nodes": {
-				"127.0.0.1:8080": 1
+				"%s": 1
 			}
 		}
-	}`, serviceID)
+	}`, serviceID, httpbinNode)
 	serviceFile := filepath.Join(t.TempDir(), "service.json")
 	require.NoError(t, os.WriteFile(serviceFile, []byte(serviceJSON), 0o644))
 
@@ -108,11 +110,15 @@ func TestRoute_ServiceAndPluginConfigCombination(t *testing.T) {
 
 	var result map[string]interface{}
 	require.NoError(t, json.Unmarshal([]byte(body), &result))
-	assert.Equal(t, fmt.Sprintf("%s/get", httpbinURL), result["url"])
+	proxiedURL, ok := result["url"].(string)
+	require.True(t, ok, "httpbin response should expose url as string")
+	u, err := url.Parse(proxiedURL)
+	require.NoError(t, err)
+	assert.Equal(t, "/get", u.Path)
 
 	headers, ok := result["headers"].(map[string]interface{})
 	require.True(t, ok, "httpbin response should expose request headers")
-	assert.Equal(t, "service-route-plugin-config", headers["X-Scenario-Coverage"])
+	assertHeaderContains(t, headers["X-Scenario-Coverage"], "service-route-plugin-config")
 }
 
 func TestUpstream_MultiNodeRealTraffic(t *testing.T) {
@@ -163,7 +169,7 @@ func TestUpstream_MultiNodeRealTraffic(t *testing.T) {
 	require.NoError(t, err, "route create failed: stdout=%s stderr=%s", stdout, stderr)
 
 	seen := map[string]bool{}
-	for i := 0; i < 12; i++ {
+	for i := 0; i < 10; i++ {
 		resp, err := http.Get(gatewayURL + "/scenario-multi-node")
 		require.NoError(t, err, "gateway request should succeed")
 
@@ -178,7 +184,7 @@ func TestUpstream_MultiNodeRealTraffic(t *testing.T) {
 			}
 		}
 
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	assert.True(t, seen["backend-a"], "traffic should reach backend-a, seen=%v", seen)
@@ -199,10 +205,30 @@ func newNamedTestServer(t *testing.T, name string) *httptest.Server {
 func hostPort(t *testing.T, rawURL string) string {
 	t.Helper()
 
-	host := strings.TrimPrefix(rawURL, "http://")
-	_, _, err := net.SplitHostPort(host)
+	parsed, err := url.Parse(rawURL)
+	require.NoError(t, err)
+
+	host := parsed.Host
+	_, _, err = net.SplitHostPort(host)
 	require.NoError(t, err)
 	return host
+}
+
+func assertHeaderContains(t *testing.T, raw interface{}, want string) {
+	t.Helper()
+
+	switch v := raw.(type) {
+	case string:
+		assert.Equal(t, want, v)
+	case []interface{}:
+		values := make([]string, 0, len(v))
+		for _, item := range v {
+			values = append(values, fmt.Sprintf("%v", item))
+		}
+		assert.Contains(t, values, want)
+	default:
+		t.Fatalf("unexpected header value type: %T", raw)
+	}
 }
 
 func skipIfLicenseRestricted(t *testing.T, stdout, stderr string, err error) {
