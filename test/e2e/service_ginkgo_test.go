@@ -13,33 +13,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func setupServiceEnvWithKey(g Gomega, apiKey string) []string {
-	env := []string{
-		"A6_CONFIG_DIR=" + GinkgoT().TempDir(),
-	}
-	_, stderr, err := runA6WithEnv(env, "context", "create", "test",
-		"--server", adminURL, "--api-key", apiKey)
-	g.Expect(err).NotTo(HaveOccurred(), "failed to create service test context: %s", stderr)
-	return env
-}
-
-func writeServiceFile(g Gomega, name, body string) string {
-	path := filepath.Join(GinkgoT().TempDir(), name)
-	g.Expect(os.WriteFile(path, []byte(body), 0o644)).To(Succeed())
-	return path
-}
-
-func deleteServiceViaAdminByID(g Gomega, id string) {
-	resp, err := adminAPI("DELETE", "/apisix/admin/services/"+id, nil)
-	if err == nil && resp != nil {
-		g.Expect(resp.Body.Close()).To(Succeed())
-	}
-}
-
-func deleteServiceViaCLIByID(env []string, id string) {
-	_, _, _ = runA6WithEnv(env, "service", "delete", id, "--force")
-}
-
 var _ = Describe("service command", Ordered, func() {
 	var env []string
 

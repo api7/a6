@@ -131,6 +131,7 @@ make docker-down    # Tear down
 |---|---|---|
 | `APISIX_ADMIN_URL` | `http://127.0.0.1:9180` | Admin API base URL |
 | `APISIX_GATEWAY_URL` | `http://127.0.0.1:9080` | Data plane base URL |
+| `APISIX_CONTROL_URL` | `http://127.0.0.1:9090` | Control API base URL |
 | `HTTPBIN_URL` | `http://127.0.0.1:8080` | httpbin upstream URL |
 
 ### Code Style Rules

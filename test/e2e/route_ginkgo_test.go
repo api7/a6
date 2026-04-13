@@ -5,47 +5,11 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
-
-func setupRouteEnvWithKey(g Gomega, apiKey string) []string {
-	env := []string{
-		"A6_CONFIG_DIR=" + GinkgoT().TempDir(),
-	}
-	_, stderr, err := runA6WithEnv(env, "context", "create", "test",
-		"--server", adminURL, "--api-key", apiKey)
-	g.Expect(err).NotTo(HaveOccurred(), "failed to create route test context: %s", stderr)
-	return env
-}
-
-func writeRouteFile(g Gomega, name, body string) string {
-	path := filepath.Join(GinkgoT().TempDir(), name)
-	g.Expect(os.WriteFile(path, []byte(body), 0o644)).To(Succeed())
-	return path
-}
-
-func hostPortFromURL(g Gomega, rawURL string) string {
-	parsed, err := url.Parse(rawURL)
-	g.Expect(err).NotTo(HaveOccurred())
-	return parsed.Host
-}
-
-func deleteRouteViaAdminByID(g Gomega, id string) {
-	resp, err := adminAPI("DELETE", "/apisix/admin/routes/"+id, nil)
-	if err == nil && resp != nil {
-		g.Expect(resp.Body.Close()).To(Succeed())
-	}
-}
-
-func deleteRouteViaCLIByID(env []string, id string) {
-	_, _, _ = runA6WithEnv(env, "route", "delete", id, "--force")
-}
 
 var _ = Describe("route command", Ordered, func() {
 	var env []string

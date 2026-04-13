@@ -15,33 +15,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func setupUpstreamEnvWithKey(g Gomega, apiKey string) []string {
-	env := []string{
-		"A6_CONFIG_DIR=" + GinkgoT().TempDir(),
-	}
-	_, stderr, err := runA6WithEnv(env, "context", "create", "test",
-		"--server", adminURL, "--api-key", apiKey)
-	g.Expect(err).NotTo(HaveOccurred(), "failed to create upstream test context: %s", stderr)
-	return env
-}
-
-func writeUpstreamFile(g Gomega, name, body string) string {
-	path := filepath.Join(GinkgoT().TempDir(), name)
-	g.Expect(os.WriteFile(path, []byte(body), 0o644)).To(Succeed())
-	return path
-}
-
-func deleteUpstreamViaAdminByID(g Gomega, id string) {
-	resp, err := adminAPI("DELETE", "/apisix/admin/upstreams/"+id, nil)
-	if err == nil && resp != nil {
-		g.Expect(resp.Body.Close()).To(Succeed())
-	}
-}
-
-func deleteUpstreamViaCLIByID(env []string, id string) {
-	_, _, _ = runA6WithEnv(env, "upstream", "delete", id, "--force")
-}
-
 func createUpstreamViaCLIFile(g Gomega, env []string, file string) {
 	stdout, stderr, err := runA6WithEnv(env, "upstream", "create", "-f", file)
 	g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
