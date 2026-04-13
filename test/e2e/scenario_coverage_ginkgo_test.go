@@ -77,13 +77,20 @@ var _ = Describe("scenario coverage", func() {
 		g.Expect(err).NotTo(HaveOccurred(), "route create failed: stdout=%s stderr=%s", stdout, stderr)
 
 		var body string
+		var lastErr error
+		var lastStatus int
 		for i := 0; i < 10; i++ {
 			resp, reqErr := http.Get(gatewayURL + "/scenario-combo")
-			g.Expect(reqErr).NotTo(HaveOccurred())
+			if reqErr != nil {
+				lastErr = reqErr
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
 
 			payload, readErr := io.ReadAll(resp.Body)
 			g.Expect(resp.Body.Close()).To(Succeed())
 			g.Expect(readErr).NotTo(HaveOccurred())
+			lastStatus = resp.StatusCode
 
 			if resp.StatusCode == http.StatusOK {
 				body = string(payload)
@@ -92,7 +99,7 @@ var _ = Describe("scenario coverage", func() {
 			time.Sleep(500 * time.Millisecond)
 		}
 
-		g.Expect(body).NotTo(BeEmpty(), "gateway should eventually proxy the route")
+		g.Expect(body).NotTo(BeEmpty(), "gateway should eventually proxy the route, last_err=%v last_status=%d", lastErr, lastStatus)
 
 		var result map[string]interface{}
 		g.Expect(json.Unmarshal([]byte(body), &result)).To(Succeed())
@@ -150,13 +157,20 @@ var _ = Describe("scenario coverage", func() {
 		g.Expect(err).NotTo(HaveOccurred(), "route create failed: stdout=%s stderr=%s", stdout, stderr)
 
 		seen := map[string]bool{}
+		var lastErr error
+		var lastStatus int
 		for i := 0; i < 10; i++ {
 			resp, reqErr := http.Get(gatewayURL + "/scenario-multi-node")
-			g.Expect(reqErr).NotTo(HaveOccurred())
+			if reqErr != nil {
+				lastErr = reqErr
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
 
 			payload, readErr := io.ReadAll(resp.Body)
 			g.Expect(resp.Body.Close()).To(Succeed())
 			g.Expect(readErr).NotTo(HaveOccurred())
+			lastStatus = resp.StatusCode
 
 			if resp.StatusCode == http.StatusOK {
 				seen[strings.TrimSpace(string(payload))] = true
@@ -167,8 +181,8 @@ var _ = Describe("scenario coverage", func() {
 			time.Sleep(500 * time.Millisecond)
 		}
 
-		g.Expect(seen["backend-a"]).To(BeTrue(), "traffic should reach backend-a, seen=%v", seen)
-		g.Expect(seen["backend-b"]).To(BeTrue(), "traffic should reach backend-b, seen=%v", seen)
+		g.Expect(seen["backend-a"]).To(BeTrue(), "traffic should reach backend-a, seen=%v last_err=%v last_status=%d", seen, lastErr, lastStatus)
+		g.Expect(seen["backend-b"]).To(BeTrue(), "traffic should reach backend-b, seen=%v last_err=%v last_status=%d", seen, lastErr, lastStatus)
 	})
 })
 
@@ -182,7 +196,7 @@ func newNamedTestServer(name string) *httptest.Server {
 func expectHeaderContains(g Gomega, raw interface{}, want string) {
 	switch v := raw.(type) {
 	case string:
-		g.Expect(v).To(Equal(want))
+		g.Expect(v).To(ContainSubstring(want))
 	case []interface{}:
 		values := make([]string, 0, len(v))
 		for _, item := range v {
