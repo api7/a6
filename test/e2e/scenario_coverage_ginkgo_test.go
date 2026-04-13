@@ -16,6 +16,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type scenarioHTTPBinResponse struct {
+	URL     string                     `json:"url"`
+	Headers map[string]json.RawMessage `json:"headers"`
+}
+
 var _ = Describe("scenario coverage", func() {
 	It("covers the route + service + plugin-config combination with real APISIX traffic", func() {
 		g := NewWithT(GinkgoT())
@@ -79,8 +84,9 @@ var _ = Describe("scenario coverage", func() {
 		var body string
 		var lastErr error
 		var lastStatus int
+		client := &http.Client{Timeout: 2 * time.Second}
 		for i := 0; i < 10; i++ {
-			resp, reqErr := http.Get(gatewayURL + "/scenario-combo")
+			resp, reqErr := client.Get(gatewayURL + "/scenario-combo")
 			if reqErr != nil {
 				lastErr = reqErr
 				time.Sleep(500 * time.Millisecond)
@@ -101,17 +107,16 @@ var _ = Describe("scenario coverage", func() {
 
 		g.Expect(body).NotTo(BeEmpty(), "gateway should eventually proxy the route, last_err=%v last_status=%d", lastErr, lastStatus)
 
-		var result map[string]interface{}
+		var result scenarioHTTPBinResponse
 		g.Expect(json.Unmarshal([]byte(body), &result)).To(Succeed())
-		proxiedURL, ok := result["url"].(string)
-		g.Expect(ok).To(BeTrue(), "httpbin response should expose url as string")
-		u, parseErr := url.Parse(proxiedURL)
+		g.Expect(result.URL).NotTo(BeEmpty(), "httpbin response should expose url as string")
+		u, parseErr := url.Parse(result.URL)
 		g.Expect(parseErr).NotTo(HaveOccurred())
 		g.Expect(u.Path).To(Equal("/get"))
 
-		headers, ok := result["headers"].(map[string]interface{})
+		headerValue, ok := result.Headers["X-Scenario-Coverage"]
 		g.Expect(ok).To(BeTrue(), "httpbin response should expose request headers")
-		expectHeaderContains(g, headers["X-Scenario-Coverage"], "service-route-plugin-config")
+		expectHeaderContains(g, headerValue, "service-route-plugin-config")
 	})
 
 	It("covers multi-node upstream traffic with real APISIX load balancing", func() {
@@ -159,8 +164,9 @@ var _ = Describe("scenario coverage", func() {
 		seen := map[string]bool{}
 		var lastErr error
 		var lastStatus int
+		client := &http.Client{Timeout: 2 * time.Second}
 		for i := 0; i < 10; i++ {
-			resp, reqErr := http.Get(gatewayURL + "/scenario-multi-node")
+			resp, reqErr := client.Get(gatewayURL + "/scenario-multi-node")
 			if reqErr != nil {
 				lastErr = reqErr
 				time.Sleep(500 * time.Millisecond)
@@ -189,21 +195,23 @@ var _ = Describe("scenario coverage", func() {
 func newNamedTestServer(name string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		_, _ = w.Write([]byte(name))
+		_, err := w.Write([]byte(name))
+		Expect(err).NotTo(HaveOccurred())
 	}))
 }
 
-func expectHeaderContains(g Gomega, raw interface{}, want string) {
-	switch v := raw.(type) {
-	case string:
-		g.Expect(v).To(ContainSubstring(want))
-	case []interface{}:
-		values := make([]string, 0, len(v))
-		for _, item := range v {
-			values = append(values, fmt.Sprintf("%v", item))
-		}
-		g.Expect(values).To(ContainElement(want))
-	default:
-		Fail(fmt.Sprintf("unexpected header value type: %T", raw))
+func expectHeaderContains(g Gomega, raw json.RawMessage, want string) {
+	var single string
+	if err := json.Unmarshal(raw, &single); err == nil {
+		g.Expect(single).To(ContainSubstring(want))
+		return
 	}
+
+	var values []string
+	if err := json.Unmarshal(raw, &values); err == nil {
+		g.Expect(values).To(ContainElement(want))
+		return
+	}
+
+	Fail(fmt.Sprintf("unexpected header value: %s", string(raw)))
 }
