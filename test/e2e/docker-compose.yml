@@ -10,9 +10,8 @@ services:
       etcd:
         condition: service_healthy
     ports:
-      - "${A6_E2E_ADMIN_PORT:-9180}:9180"
-      - "${A6_E2E_GATEWAY_PORT:-19080}:9080"
-      - "${A6_E2E_CONTROL_PORT:-19090}:9090"
+      - "9180:9180"
+      - "9080:9080"
     networks:
       - a6-test
 
@@ -37,7 +36,7 @@ services:
     image: ghcr.io/mccutchen/go-httpbin
     restart: always
     ports:
-      - "${A6_E2E_HTTPBIN_PORT:-18080}:8080"
+      - "8080:8080"
     networks:
       - a6-test
 
