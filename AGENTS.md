@@ -54,7 +54,7 @@ a6/
 ├── pkg/iostreams/                 # I/O abstraction (TTY detection)
 ├── pkg/cmdutil/                   # Shared command utilities
 ├── pkg/tableprinter/              # Table output rendering
-├── pkg/httpmock/                  # HTTP mocking for tests
+├── pkg/httpmock/                  # Legacy HTTP mocking helpers still under migration
 ├── internal/config/               # Configuration/context management
 ├── internal/version/              # Build version info
 ├── docs/                          # All documentation
@@ -76,7 +76,7 @@ Core design principles (see `docs/adr/001-tech-stack.md` for details):
 1. **Factory Pattern**: Every command receives a Factory containing IOStreams, HttpClient, and Config. No global state is allowed.
 2. **Command Pattern**: Uses an Options struct, a `NewCmd` function, and a `Run` function for consistent command structure.
 3. **Output Pattern**: Table output for TTY, JSON for non-TTY. The `--output` flag overrides this behavior.
-4. **Testing Pattern**: Uses `httpmock` stubs and test IOStreams. Real network calls are prohibited in tests.
+4. **Testing Pattern**: Command behavior against APISIX belongs in real e2e tests. Unit tests are only for self-contained logic that does not mock external systems.
 
 ### How to Add a New Command (Step-by-Step)
 Follow these steps when adding a new command, such as `a6 upstream list`:
@@ -85,11 +85,10 @@ Follow these steps when adding a new command, such as `a6 upstream list`:
 2. **Create types**: Add `pkg/api/types_upstream.go` with Go structs matching the API schema.
 3. **Create parent command**: Add `pkg/cmd/upstream/upstream.go`.
 4. **Create the action**: Add `pkg/cmd/upstream/list/list.go` following the template in `docs/golden-example.md`.
-5. **Add tests**: Create `pkg/cmd/upstream/list/list_test.go`. Include TTY, non-TTY, filter, and error tests.
-6. **Add fixture**: Place realistic mock data in `test/fixtures/upstream_list.json`.
-7. **Register command**: Add the new command to `pkg/cmd/root/root.go`.
-8. **Update docs**: Add or update the relevant user guide, such as `docs/user-guide/upstream.md`.
-9. **Run checks**: Execute `make check` to run fmt, vet, lint, and tests.
+5. **Add tests**: Extend real e2e coverage in `test/e2e/`. Only add unit tests when the code under test is fully local and does not depend on an external mock.
+6. **Register command**: Add the new command to `pkg/cmd/root/root.go`.
+7. **Update docs**: Add or update the relevant user guide, such as `docs/user-guide/upstream.md`.
+8. **Run checks**: Execute `make check` and the relevant e2e target before committing.
 
 ### Common Commands
 ```bash
@@ -107,7 +106,7 @@ make docker-down      # Stop local APISIX stack
 ```
 
 ### E2E Testing
-E2E tests run against a real APISIX instance. They use the `//go:build e2e` build tag and live in `test/e2e/`.
+E2E tests run against a real APISIX instance. They use the `//go:build e2e` build tag, live in `test/e2e/`, and should be written with Ginkgo/Gomega.
 
 **Local development:**
 ```bash
@@ -119,7 +118,8 @@ make docker-down    # Tear down
 **CI**: The `.github/workflows/e2e.yml` workflow runs etcd as a service container, starts APISIX and httpbin via `docker run`, and runs tests against `127.0.0.1`.
 
 **Key files:**
-- `test/e2e/setup_test.go` — TestMain (builds binary, health check, helpers)
+- `test/e2e/suite_test.go` — Ginkgo suite bootstrap
+- `test/e2e/setup_test.go` — binary bootstrap and shared helpers
 - `test/e2e/smoke_test.go` — Smoke tests verifying APISIX is reachable
 - `test/e2e/context_test.go` — Context management e2e tests (local config, no APISIX needed)
 - `test/e2e/apisix_conf/config.yaml` — APISIX config for CI (etcd at `127.0.0.1:2379`)
@@ -131,6 +131,7 @@ make docker-down    # Tear down
 |---|---|---|
 | `APISIX_ADMIN_URL` | `http://127.0.0.1:9180` | Admin API base URL |
 | `APISIX_GATEWAY_URL` | `http://127.0.0.1:9080` | Data plane base URL |
+| `APISIX_CONTROL_URL` | `http://127.0.0.1:9090` | Control API base URL |
 | `HTTPBIN_URL` | `http://127.0.0.1:8080` | httpbin upstream URL |
 
 ### Code Style Rules
@@ -158,6 +159,7 @@ Example: feat(route): add route list command with table output
 4. Never suppress errors. Always handle and propagate them.
 5. Never use global state. Always inject dependencies via the Factory.
 6. Run `make check` before committing. All checks must pass.
+7. Do not add new mock-Admin-API command tests. Use real e2e coverage for command behavior.
 
 ### Environment Variables
 | Variable | Purpose | Default |

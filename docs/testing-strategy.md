@@ -1,18 +1,15 @@
 # Testing Strategy
 
 ## Test Requirements
-- Every exported function must have at least one corresponding test.
-- Every command must be tested for:
-  - Success cases
-  - Error cases
-  - TTY output
-  - Non-TTY output
-- Aim for a code coverage target of 80% or higher for packages within the `pkg/` directory.
+- Every code change must add or update tests.
+- Command behavior that depends on the APISIX Admin API must be covered by real e2e tests against a running APISIX instance.
+- Unit tests are reserved for self-contained logic that does not require a mocked external environment.
+- Treat pure unit coverage and e2e scenario coverage as separate signals. Do not use mocked Admin API command tests to inflate package coverage.
 
 ## Test File Location
-Tests should be located in the same directory as the code they test. For example, `list.go` should have its tests in `list_test.go`.
+Pure unit tests should be located in the same directory as the code they test. For example, `selector.go` should have its tests in `selector_test.go`.
 
-Store test fixtures in `test/fixtures/<resource>_<action>.json`.
+Real APISIX e2e tests live in `test/e2e/`.
 
 ## Test Naming Convention
 Follow the pattern `func Test<Function>_<Scenario>(t *testing.T) {}`.
@@ -24,100 +21,40 @@ Examples:
 - `func TestRouteList_JSONOutput(t *testing.T) {}`
 - `func TestRouteList_NonTTY(t *testing.T) {}`
 
-## HTTP Mocking Pattern
-Use the project's internal `pkg/httpmock` package instead of external mock libraries.
-
-```go
-func TestRouteList_Success(t *testing.T) {
-    // 1. Create mock registry
-    reg := httpmock.NewRegistry()
-    
-    // 2. Register expected request and response
-    reg.Register(
-        httpmock.GET("/apisix/admin/routes"),
-        httpmock.JSONResponse(200, loadFixture("route_list.json")),
-    )
-    
-    // 3. Create test factory with mock client
-    ios := iostreams.Test()
-    f := &cmd.Factory{
-        IOStreams: ios,
-        HttpClient: func() (*http.Client, error) {
-            return reg.GetClient(), nil
-        },
-    }
-    
-    // 4. Create and execute command
-    cmd := list.NewCmdList(f)
-    cmd.SetArgs([]string{})
-    err := cmd.Execute()
-    
-    // 5. Verify results
-    require.NoError(t, err)
-    assert.Contains(t, ios.Out.String(), "users-api")
-    reg.Verify(t)
-}
-```
-
 ## Test Categories
 
 ### Unit Tests
-Required for every command to verify:
-- Command flag parsing
-- HTTP request construction (URL, query parameters, headers)
-- Response parsing
-- Output formatting for both table and JSON
-- Error handling for API errors, network issues, and authentication failures
+Use unit tests only for logic that is fully local and deterministic:
+- pure data transformations
+- output rendering helpers
+- selectors, parsers, and normalization helpers
+- command-independent utility code
+
+Do not add new unit tests that mock the APISIX Admin API just to verify CLI behavior.
 
 ### TTY vs Non-TTY Tests
-Every command must have tests for both TTY and non-TTY environments:
-
-```go
-func TestRouteList_TTY(t *testing.T) {
-    ios := iostreams.Test()
-    ios.SetStdoutTTY(true)
-    // Verify table output
-}
-
-func TestRouteList_NonTTY(t *testing.T) {
-    ios := iostreams.Test()
-    ios.SetStdoutTTY(false)
-    // Verify JSON output
-}
-```
-
-## Test Fixtures
-- **Location**: `test/fixtures/`
-- **Naming**: `<resource>_<action>.json` (e.g., `route_list.json`)
-- **Content**: Use realistic APISIX responses. Copy them from the actual API and redact any sensitive data.
-
-Load fixtures in your tests using a helper:
-```go
-func loadFixture(name string) []byte {
-    data, err := os.ReadFile(filepath.Join("../../../test/fixtures", name))
-    if err != nil {
-        panic(fmt.Sprintf("failed to load fixture %s: %v", name, err))
-    }
-    return data
-}
-```
+TTY and non-TTY behavior should be covered where it belongs:
+- pure output-formatting helpers can be tested with unit tests
+- command-level output mode behavior should be covered by e2e specs against the real CLI and a real APISIX instance
 
 ## What NOT to Test
 - Do not test cobra flag binding, as this is handled by the cobra framework.
 - Do not test JSON marshaling, which is the responsibility of the standard library.
-- Avoid writing integration tests against a real APISIX instance in unit test files — use e2e tests for that.
+- Do not add command tests that replace the Admin API with `httpmock`, fake `RoundTripper`s, or stubbed responses.
+- Avoid writing integration tests against a real APISIX instance in unit test files — use `test/e2e` for that.
 
 ## E2E Tests
 
-E2E tests validate the CLI binary against a real APISIX instance. They live in `test/e2e/` and use the `//go:build e2e` build tag to separate them from unit tests.
+E2E tests validate the CLI binary against a real APISIX instance. They live in `test/e2e/`, use the `//go:build e2e` build tag, and should be written with Ginkgo/Gomega.
 
 ### Architecture
 
 The e2e framework:
-1. Builds the `a6` binary once in `TestMain` (in `setup_test.go`)
+1. Builds the `a6` binary once per test process
 2. Waits for APISIX Admin API to become healthy
-3. Runs tests that invoke the binary via `exec.Command`
-4. Uses direct Admin API calls for setup/cleanup (not via the CLI)
+3. Runs specs that invoke the binary via `exec.Command`
+4. Uses direct Admin API calls only for setup and cleanup
+5. Organizes scenarios with a suite structure inspired by Kubernetes-style e2e suites
 
 ### Infrastructure
 
@@ -142,9 +79,10 @@ make docker-down    # Tear down
 
 ### E2E Test File Structure
 
-- `test/e2e/setup_test.go` — `TestMain`, helper functions (`runA6`, `adminAPI`, `waitForHealthy`)
-- `test/e2e/smoke_test.go` — Smoke tests verifying the binary runs and APISIX is reachable
-- `test/e2e/<resource>_test.go` — Per-resource CRUD lifecycle tests (added per PR)
+- `test/e2e/suite_test.go` — Ginkgo suite bootstrap
+- `test/e2e/setup_test.go` — binary build and shared helper functions
+- `test/e2e/<resource>_ginkgo_test.go` — Ginkgo specs for resource behavior
+- `test/e2e/<resource>_test.go` — legacy `testing`-style e2e files that should be migrated over time
 - `test/e2e/apisix_conf/config.yaml` — APISIX config for CI (etcd at `127.0.0.1`)
 - `test/e2e/apisix_conf/config-docker.yaml` — APISIX config for docker-compose (etcd at `etcd`)
 
@@ -156,35 +94,26 @@ make docker-down    # Tear down
 package e2e
 
 import (
-    "testing"
-
-    "github.com/stretchr/testify/assert"
-    "github.com/stretchr/testify/require"
+    . "github.com/onsi/ginkgo/v2"
+    . "github.com/onsi/gomega"
 )
 
-func TestRoute_CRUD(t *testing.T) {
-    // Setup: create a route via Admin API
-    body := []byte(`{"uri": "/test", "upstream": {"nodes": {"httpbin:8080": 1}, "type": "roundrobin"}}`)
-    resp, err := adminAPI("PUT", "/apisix/admin/routes/test-route-1", body)
-    require.NoError(t, err)
-    defer resp.Body.Close()
-    require.Equal(t, 201, resp.StatusCode)
+var _ = Describe("route command", func() {
+    It("creates and lists routes against the real Admin API", func() {
+        env := setupRouteEnvWithKey(NewWithT(GinkgoT()), adminKey)
 
-    // Test: list routes via CLI
-    stdout, _, err := runA6("route", "list")
-    require.NoError(t, err)
-    assert.Contains(t, stdout, "test-route-1")
-
-    // Cleanup: delete the route
-    resp, err = adminAPI("DELETE", "/apisix/admin/routes/test-route-1", nil)
-    require.NoError(t, err)
-    resp.Body.Close()
-}
+        stdout, stderr, err := runA6WithEnv(env, "route", "list", "--output", "json")
+        Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
+        Expect(stdout).To(ContainSubstring("["))
+    })
+})
 ```
 
-### E2E Test Naming Convention
-
-Follow: `Test<Resource>_<Scenario>` (e.g., `TestRoute_CRUD`, `TestSmoke_BinaryRuns`)
+Prefer Kubernetes-style structure:
+- top-level `Describe` grouped by command or resource
+- nested `Context` blocks for modes or preconditions
+- focused `It` specs for observable behavior
+- shared setup via `BeforeEach`, `JustBeforeEach`, `DeferCleanup`, and helper functions
 
 ### Environment Variables
 
@@ -196,10 +125,12 @@ Follow: `Test<Resource>_<Scenario>` (e.g., `TestRoute_CRUD`, `TestSmoke_BinaryRu
 
 ## Running Tests
 Use the following commands to run tests:
-- `make test`: Runs all tests with race detection.
+- `make test`: Runs unit tests only.
 - `make test-verbose`: Runs tests with verbose output.
-- `make coverage`: Generates and opens a coverage report.
-- `go test ./pkg/cmd/route/list/...`: Runs tests for a specific package.
+- `make test-e2e`: Runs the real APISIX e2e suite.
+- `make coverage`: Generates a unit-test coverage report for the current `go test` target set.
+- `go test ./pkg/selector`: Runs unit tests for a pure helper package.
+- `go test -tags e2e ./test/e2e/...`: Runs the e2e suite directly.
 
 ## Assertions
 Use the `testify` library for assertions:

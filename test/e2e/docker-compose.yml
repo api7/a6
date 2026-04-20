@@ -4,6 +4,8 @@ services:
     restart: always
     volumes:
       - ./apisix_conf/config-docker.yaml:/usr/local/apisix/conf/config.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       etcd:
         condition: service_healthy
