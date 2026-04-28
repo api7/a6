@@ -67,8 +67,12 @@ var _ = Describe("extension command", func() {
 
 		stdout, stderr, err = runA6WithEnv(env, "extension", "upgrade", "--all")
 		combined := stdout + stderr
-		g.Expect(err == nil || strings.Contains(combined, "No extensions") || strings.Contains(combined, "no extensions")).To(BeTrue(),
-			"stdout=%s stderr=%s err=%v", stdout, stderr, err)
+		g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
+		g.Expect(combined).To(SatisfyAny(
+			ContainSubstring("All extensions are already up to date"),
+			ContainSubstring("No extensions"),
+			ContainSubstring("no extensions"),
+		))
 
 		_, stderr, err = runA6WithEnv(env, "extension", "install", "bad-format")
 		g.Expect(err).To(HaveOccurred())
