@@ -21,7 +21,7 @@ type StreamRoute struct {
 
 // StreamRouteUpstream defines an inline upstream for a stream route.
 type StreamRouteUpstream struct {
-	Type    string                 `json:"type,omitempty" yaml:"type,omitempty"`
-	Nodes   map[string]interface{} `json:"nodes,omitempty" yaml:"nodes,omitempty"`
-	Retries *int                   `json:"retries,omitempty" yaml:"retries,omitempty"`
+	Type    string        `json:"type,omitempty" yaml:"type,omitempty"`
+	Nodes   UpstreamNodes `json:"nodes,omitempty" yaml:"nodes,omitempty"`
+	Retries *int          `json:"retries,omitempty" yaml:"retries,omitempty"`
 }

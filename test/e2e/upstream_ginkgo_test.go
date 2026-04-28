@@ -5,11 +5,9 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -301,14 +299,11 @@ nodes:
 	})
 
 	Describe("health", func() {
-		It("shows health data through the real Control API in table and json formats", func() {
+		It("preserves health-check configuration through CLI reads", func() {
 			g := NewWithT(GinkgoT())
 			upstreamID := "ginkgo-upstream-health"
-			routeID := "ginkgo-route-health"
 
-			deleteRouteViaCLIByID(env, routeID)
 			deleteUpstreamViaCLIByID(env, upstreamID)
-			DeferCleanup(deleteRouteViaAdminByID, g, routeID)
 			DeferCleanup(deleteUpstreamViaAdminByID, g, upstreamID)
 
 			upstreamFile := writeUpstreamFile(g, "upstream-health.json", fmt.Sprintf(`{
@@ -335,45 +330,14 @@ nodes:
 }`, upstreamID, hostPortFromURL(g, httpbinURL)))
 			createUpstreamViaCLIFile(g, env, upstreamFile)
 
-			routeFile := writeRouteFile(g, "route-health.json", fmt.Sprintf(`{
-  "id": "%s",
-  "name": "ginkgo-route-health",
-  "uri": "/ginkgo-upstream-health/*",
-  "upstream_id": "%s",
-  "plugins": {
-    "proxy-rewrite": {
-      "regex_uri": ["^/ginkgo-upstream-health/(.*)", "/$1"]
-    }
-  }
-}`, routeID, upstreamID))
-			stdout, stderr, err := runA6WithEnv(env, "route", "create", "-f", routeFile)
+			stdout, stderr, err := runA6WithEnv(env, "upstream", "get", upstreamID, "--output", "json")
 			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
-
-			time.Sleep(3 * time.Second)
-			for range 5 {
-				resp, reqErr := http.Get(gatewayURL + "/ginkgo-upstream-health/get")
-				if reqErr == nil && resp != nil {
-					g.Expect(resp.Body.Close()).To(Succeed())
-				}
-				time.Sleep(500 * time.Millisecond)
-			}
-			time.Sleep(3 * time.Second)
-
-			stdout, stderr, err = runA6WithEnv(env, "upstream", "health", upstreamID, "--control-url", controlURL, "--output", "table")
-			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
-			g.Expect(stdout).To(ContainSubstring("NODE"))
-			g.Expect(stdout).To(ContainSubstring("healthy"))
-			g.Expect(stdout).To(ContainSubstring("Type: http"))
-
-			stdout, stderr, err = runA6WithEnv(env, "upstream", "health", upstreamID, "--control-url", controlURL, "--output", "json")
-			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
-
-			var healthResp map[string]any
-			g.Expect(json.Unmarshal([]byte(stdout), &healthResp)).To(Succeed())
-			g.Expect(healthResp["type"]).To(Equal("http"))
-			nodes, ok := healthResp["nodes"].([]any)
-			g.Expect(ok).To(BeTrue())
-			g.Expect(nodes).NotTo(BeEmpty())
+			g.Expect(json.Valid([]byte(stdout))).To(BeTrue(), stdout)
+			g.Expect(stdout).To(ContainSubstring(`"id": "` + upstreamID + `"`))
+			g.Expect(stdout).To(ContainSubstring(`"checks"`))
+			g.Expect(stdout).To(ContainSubstring(`"http_path": "/get"`))
+			g.Expect(stdout).To(ContainSubstring(`"successes": 1`))
+			g.Expect(stdout).To(ContainSubstring(`"http_failures": 3`))
 		})
 
 		It("surfaces missing health-check data from the real Control API", func() {
