@@ -43,7 +43,7 @@ var _ = Describe("plugin-metadata command", Ordered, func() {
 	})
 
 	Describe("create", func() {
-		It("creates plugin metadata from JSON and YAML files against the real Admin API", func() {
+		It("creates plugin metadata from JSON and YAML files and verifies it through the CLI", func() {
 			g := NewWithT(GinkgoT())
 			jsonPlugin := "syslog"
 			yamlPlugin := "http-logger"
@@ -62,10 +62,9 @@ var _ = Describe("plugin-metadata command", Ordered, func() {
 			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
 			g.Expect(stdout).To(ContainSubstring("log_format"))
 
-			resp, apiErr := adminAPI("GET", "/apisix/admin/plugin_metadata/"+jsonPlugin, nil)
-			g.Expect(apiErr).NotTo(HaveOccurred())
-			g.Expect(resp.StatusCode).To(Equal(200))
-			g.Expect(resp.Body.Close()).To(Succeed())
+			stdout, stderr, err = runA6WithEnv(env, "plugin-metadata", "get", jsonPlugin, "--output", "json")
+			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
+			g.Expect(stdout).To(ContainSubstring("log_format"))
 
 			yamlFile := writePluginMetadataFile(g, "plugin-metadata.yaml", `log_format:
   host: $host
@@ -85,7 +84,7 @@ var _ = Describe("plugin-metadata command", Ordered, func() {
 	})
 
 	Describe("get, update, and delete", func() {
-		It("gets plugin metadata in yaml/json, updates it, and deletes it against the real Admin API", func() {
+		It("gets plugin metadata in yaml/json, updates it, and deletes it through the CLI", func() {
 			g := NewWithT(GinkgoT())
 			pluginName := "syslog"
 
@@ -127,10 +126,9 @@ var _ = Describe("plugin-metadata command", Ordered, func() {
 			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
 			g.Expect(stdout).To(ContainSubstring("Deleted plugin metadata"))
 
-			resp, apiErr := adminAPI("GET", "/apisix/admin/plugin_metadata/"+pluginName, nil)
-			g.Expect(apiErr).NotTo(HaveOccurred())
-			g.Expect(resp.StatusCode).To(Equal(404))
-			g.Expect(resp.Body.Close()).To(Succeed())
+			_, stderr, err = runA6WithEnv(env, "plugin-metadata", "get", pluginName)
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(strings.ToLower(stderr)).To(ContainSubstring("not found"))
 		})
 
 		It("surfaces get not-found behavior and update required-flag validation through the real CLI", func() {

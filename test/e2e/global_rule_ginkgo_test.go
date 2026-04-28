@@ -53,7 +53,7 @@ var _ = Describe("global-rule command", Ordered, func() {
 	})
 
 	Describe("create", func() {
-		It("creates global rules from JSON and YAML files against the real Admin API", func() {
+		It("creates global rules from JSON and YAML files and verifies them through the CLI", func() {
 			g := NewWithT(GinkgoT())
 			jsonID := "ginkgo-global-rule-json"
 			yamlID := "ginkgo-global-rule-yaml"
@@ -73,10 +73,9 @@ var _ = Describe("global-rule command", Ordered, func() {
 			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
 			g.Expect(stdout).To(ContainSubstring(jsonID))
 
-			resp, apiErr := adminAPI("GET", "/apisix/admin/global_rules/"+jsonID, nil)
-			g.Expect(apiErr).NotTo(HaveOccurred())
-			g.Expect(resp.StatusCode).To(Equal(200))
-			g.Expect(resp.Body.Close()).To(Succeed())
+			stdout, stderr, err = runA6WithEnv(env, "global-rule", "get", jsonID, "--output", "json")
+			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
+			g.Expect(stdout).To(ContainSubstring(jsonID))
 
 			yamlFile := writeGlobalRuleFile(g, "global-rule.yaml", fmt.Sprintf(`id: %s
 plugins:
@@ -211,7 +210,7 @@ plugins:
 	})
 
 	Describe("get, update, and delete", func() {
-		It("gets global rules in yaml/json, updates them, and deletes them against the real Admin API", func() {
+		It("gets global rules in yaml/json, updates them, and deletes them through the CLI", func() {
 			g := NewWithT(GinkgoT())
 			ruleID := "ginkgo-global-rule-lifecycle"
 
@@ -256,10 +255,9 @@ plugins:
 			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
 			g.Expect(stdout).To(ContainSubstring("deleted"))
 
-			resp, apiErr := adminAPI("GET", "/apisix/admin/global_rules/"+ruleID, nil)
-			g.Expect(apiErr).NotTo(HaveOccurred())
-			g.Expect(resp.StatusCode).To(Equal(404))
-			g.Expect(resp.Body.Close()).To(Succeed())
+			_, stderr, err = runA6WithEnv(env, "global-rule", "get", ruleID)
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(strings.ToLower(stderr)).To(ContainSubstring("not found"))
 		})
 
 		It("surfaces get and delete not-found behavior and update required-flag validation through the real CLI", func() {

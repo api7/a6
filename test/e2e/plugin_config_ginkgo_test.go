@@ -14,30 +14,7 @@ import (
 )
 
 func setupPluginConfigEnvWithKey(g Gomega, apiKey string) []string {
-	env := []string{
-		"A6_CONFIG_DIR=" + GinkgoT().TempDir(),
-	}
-	_, stderr, err := runA6WithEnv(env, "context", "create", "test",
-		"--server", adminURL, "--api-key", apiKey)
-	g.Expect(err).NotTo(HaveOccurred(), "failed to create plugin-config test context: %s", stderr)
-	return env
-}
-
-func writePluginConfigFile(g Gomega, name, body string) string {
-	path := filepath.Join(GinkgoT().TempDir(), name)
-	g.Expect(os.WriteFile(path, []byte(body), 0o644)).To(Succeed())
-	return path
-}
-
-func deletePluginConfigViaAdminByID(g Gomega, id string) {
-	resp, err := adminAPI("DELETE", "/apisix/admin/plugin_configs/"+id, nil)
-	if err == nil && resp != nil {
-		g.Expect(resp.Body.Close()).To(Succeed())
-	}
-}
-
-func deletePluginConfigViaCLIByID(env []string, id string) {
-	_, _, _ = runA6WithEnv(env, "plugin-config", "delete", id, "--force")
+	return setupCLIEnvWithKey(g, apiKey)
 }
 
 func createPluginConfigViaCLIFile(g Gomega, env []string, file string) {
@@ -53,7 +30,7 @@ var _ = Describe("plugin-config command", Ordered, func() {
 	})
 
 	Describe("create", func() {
-		It("creates plugin configs from JSON and YAML files against the real Admin API", func() {
+		It("creates plugin configs from JSON and YAML files and verifies them through the CLI", func() {
 			g := NewWithT(GinkgoT())
 			jsonID := "ginkgo-plugin-config-json"
 			yamlID := "ginkgo-plugin-config-yaml"
@@ -81,10 +58,9 @@ var _ = Describe("plugin-config command", Ordered, func() {
 			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
 			g.Expect(stdout).To(ContainSubstring(jsonID))
 
-			resp, apiErr := adminAPI("GET", "/apisix/admin/plugin_configs/"+jsonID, nil)
-			g.Expect(apiErr).NotTo(HaveOccurred())
-			g.Expect(resp.StatusCode).To(Equal(200))
-			g.Expect(resp.Body.Close()).To(Succeed())
+			stdout, stderr, err = runA6WithEnv(env, "plugin-config", "get", jsonID, "--output", "json")
+			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
+			g.Expect(stdout).To(ContainSubstring("ginkgo-plugin-config-json"))
 
 			yamlFile := writePluginConfigFile(g, "plugin-config.yaml", fmt.Sprintf(`id: %s
 name: ginkgo-plugin-config-yaml
@@ -235,7 +211,7 @@ plugins:
 	})
 
 	Describe("get, update, and delete", func() {
-		It("gets plugin configs in yaml/json, updates them, and deletes them against the real Admin API", func() {
+		It("gets plugin configs in yaml/json, updates them, and deletes them through the CLI", func() {
 			g := NewWithT(GinkgoT())
 			id := "ginkgo-plugin-config-lifecycle"
 
@@ -290,10 +266,9 @@ plugins:
 			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
 			g.Expect(stdout).To(ContainSubstring("deleted"))
 
-			resp, apiErr := adminAPI("GET", "/apisix/admin/plugin_configs/"+id, nil)
-			g.Expect(apiErr).NotTo(HaveOccurred())
-			g.Expect(resp.StatusCode).To(Equal(404))
-			g.Expect(resp.Body.Close()).To(Succeed())
+			_, stderr, err = runA6WithEnv(env, "plugin-config", "get", id)
+			g.Expect(err).To(HaveOccurred())
+			g.Expect(strings.ToLower(stderr)).To(ContainSubstring("not found"))
 		})
 
 		It("surfaces get and delete not-found behavior and update required-flag validation through the real CLI", func() {
