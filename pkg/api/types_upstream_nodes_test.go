@@ -27,6 +27,28 @@ func TestUpstreamNodesUnmarshalArray(t *testing.T) {
 	}
 }
 
+func TestUpstreamNodesUnmarshalNull(t *testing.T) {
+	nodes := UpstreamNodes{"127.0.0.1:9080": float64(1)}
+	if err := json.Unmarshal([]byte(` null `), &nodes); err != nil {
+		t.Fatalf("unmarshal null nodes: %v", err)
+	}
+
+	if nodes != nil {
+		t.Fatalf("expected nil nodes, got %#v", nodes)
+	}
+}
+
+func TestUpstreamNodesUnmarshalArrayDefaultWeight(t *testing.T) {
+	var nodes UpstreamNodes
+	if err := json.Unmarshal([]byte(`[{"host":"127.0.0.1","port":9080}]`), &nodes); err != nil {
+		t.Fatalf("unmarshal array nodes with default weight: %v", err)
+	}
+
+	if got := nodes["127.0.0.1:9080"]; got != float64(1) {
+		t.Fatalf("unexpected default node weight: %#v", got)
+	}
+}
+
 func TestRouteWithArrayUpstreamNodesUnmarshals(t *testing.T) {
 	var route Route
 	err := json.Unmarshal([]byte(`{

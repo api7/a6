@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 )
@@ -10,13 +11,14 @@ import (
 type UpstreamNodes map[string]interface{}
 
 func (n *UpstreamNodes) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
+	trimmed := bytes.TrimSpace(data)
+	if string(trimmed) == "null" {
 		*n = nil
 		return nil
 	}
 
 	var keyed map[string]interface{}
-	if err := json.Unmarshal(data, &keyed); err == nil {
+	if err := json.Unmarshal(trimmed, &keyed); err == nil {
 		*n = keyed
 		return nil
 	}
@@ -26,7 +28,7 @@ func (n *UpstreamNodes) UnmarshalJSON(data []byte) error {
 		Port   int             `json:"port"`
 		Weight json.RawMessage `json:"weight"`
 	}
-	if err := json.Unmarshal(data, &listed); err != nil {
+	if err := json.Unmarshal(trimmed, &listed); err != nil {
 		return err
 	}
 
@@ -37,9 +39,10 @@ func (n *UpstreamNodes) UnmarshalJSON(data []byte) error {
 			key = fmt.Sprintf("%s:%d", node.Host, node.Port)
 		}
 
-		var weight interface{} = 1
-		if len(node.Weight) > 0 && string(node.Weight) != "null" {
-			if err := json.Unmarshal(node.Weight, &weight); err != nil {
+		var weight interface{} = float64(1)
+		weightData := bytes.TrimSpace(node.Weight)
+		if len(weightData) > 0 && string(weightData) != "null" {
+			if err := json.Unmarshal(weightData, &weight); err != nil {
 				return err
 			}
 		}
