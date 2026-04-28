@@ -408,8 +408,8 @@ labels:
 			deleteStreamRouteViaCLIByID(env, streamRouteID)
 			DeferCleanup(deleteStreamRouteViaAdminByID, g, streamRouteID)
 
-			_, stderr, err := runA6WithEnv(env, "stream-route", "get", streamRouteID)
-			skipIfStreamModeDisabled("", stderr, err)
+			stdout, stderr, err := runA6WithEnv(env, "stream-route", "get", streamRouteID)
+			skipIfStreamModeDisabled(stdout, stderr, err)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(strings.ToLower(stderr)).To(ContainSubstring("not found"))
 
@@ -417,8 +417,8 @@ labels:
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(stderr).To(ContainSubstring("required flag"))
 
-			_, stderr, err = runA6WithEnv(env, "stream-route", "delete", streamRouteID, "--force")
-			skipIfStreamModeDisabled("", stderr, err)
+			stdout, stderr, err = runA6WithEnv(env, "stream-route", "delete", streamRouteID, "--force")
+			skipIfStreamModeDisabled(stdout, stderr, err)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(strings.ToLower(stderr)).To(ContainSubstring("not found"))
 		})
