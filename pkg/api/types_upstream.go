@@ -6,7 +6,7 @@ type Upstream struct {
 	Name          *string                `json:"name,omitempty" yaml:"name,omitempty"`
 	Desc          *string                `json:"desc,omitempty" yaml:"desc,omitempty"`
 	Type          *string                `json:"type,omitempty" yaml:"type,omitempty"`
-	Nodes         map[string]interface{} `json:"nodes,omitempty" yaml:"nodes,omitempty"`
+	Nodes         UpstreamNodes          `json:"nodes,omitempty" yaml:"nodes,omitempty"`
 	ServiceName   *string                `json:"service_name,omitempty" yaml:"service_name,omitempty"`
 	DiscoveryType *string                `json:"discovery_type,omitempty" yaml:"discovery_type,omitempty"`
 	HashOn        *string                `json:"hash_on,omitempty" yaml:"hash_on,omitempty"`

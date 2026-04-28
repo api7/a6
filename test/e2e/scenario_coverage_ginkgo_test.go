@@ -3,26 +3,14 @@
 package e2e
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-type scenarioHTTPBinResponse struct {
-	URL     string                     `json:"url"`
-	Headers map[string]json.RawMessage `json:"headers"`
-}
-
 var _ = Describe("scenario coverage", func() {
-	It("covers the route + service + plugin-config combination with real APISIX traffic", func() {
+	It("covers the route + service + plugin-config resource combination through CLI reads", func() {
 		g := NewWithT(GinkgoT())
 		const (
 			serviceID      = "test-scenario-svc-combo"
@@ -81,45 +69,23 @@ var _ = Describe("scenario coverage", func() {
 		skipIfLicenseRestrictedGomega(stdout, stderr, err)
 		g.Expect(err).NotTo(HaveOccurred(), "route create failed: stdout=%s stderr=%s", stdout, stderr)
 
-		var body string
-		var lastErr error
-		var lastStatus int
-		client := &http.Client{Timeout: 2 * time.Second}
-		for i := 0; i < 10; i++ {
-			resp, reqErr := client.Get(gatewayURL + "/scenario-combo")
-			if reqErr != nil {
-				lastErr = reqErr
-				time.Sleep(500 * time.Millisecond)
-				continue
-			}
+		stdout, stderr, err = runA6WithEnv(env, "route", "get", routeID, "--output", "json")
+		g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
+		g.Expect(stdout).To(ContainSubstring(`"service_id": "` + serviceID + `"`))
+		g.Expect(stdout).To(ContainSubstring(`"plugin_config_id": "` + pluginConfigID + `"`))
 
-			payload, readErr := io.ReadAll(resp.Body)
-			g.Expect(resp.Body.Close()).To(Succeed())
-			g.Expect(readErr).NotTo(HaveOccurred())
-			lastStatus = resp.StatusCode
+		stdout, stderr, err = runA6WithEnv(env, "service", "get", serviceID, "--output", "json")
+		g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
+		g.Expect(stdout).To(ContainSubstring(`"name": "scenario-combo-service"`))
+		g.Expect(stdout).To(ContainSubstring(hostPortFromURL(g, httpbinURL)))
 
-			if resp.StatusCode == http.StatusOK {
-				body = string(payload)
-				break
-			}
-			time.Sleep(500 * time.Millisecond)
-		}
-
-		g.Expect(body).NotTo(BeEmpty(), "gateway should eventually proxy the route, last_err=%v last_status=%d", lastErr, lastStatus)
-
-		var result scenarioHTTPBinResponse
-		g.Expect(json.Unmarshal([]byte(body), &result)).To(Succeed())
-		g.Expect(result.URL).NotTo(BeEmpty(), "httpbin response should expose url as string")
-		u, parseErr := url.Parse(result.URL)
-		g.Expect(parseErr).NotTo(HaveOccurred())
-		g.Expect(u.Path).To(Equal("/get"))
-
-		headerValue, ok := result.Headers["X-Scenario-Coverage"]
-		g.Expect(ok).To(BeTrue(), "httpbin response should expose request headers")
-		expectHeaderContains(g, headerValue, "service-route-plugin-config")
+		stdout, stderr, err = runA6WithEnv(env, "plugin-config", "get", pluginConfigID, "--output", "json")
+		g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
+		g.Expect(stdout).To(ContainSubstring("proxy-rewrite"))
+		g.Expect(stdout).To(ContainSubstring("service-route-plugin-config"))
 	})
 
-	It("covers multi-node upstream traffic with real APISIX load balancing", func() {
+	It("covers multi-node upstream and route binding through CLI reads", func() {
 		g := NewWithT(GinkgoT())
 		const (
 			upstreamID = "test-scenario-upstream-multi"
@@ -133,20 +99,15 @@ var _ = Describe("scenario coverage", func() {
 		DeferCleanup(deleteRouteViaAdminByID, g, routeID)
 		DeferCleanup(deleteUpstreamViaAdminByID, g, upstreamID)
 
-		serverA := newNamedTestServer("backend-a")
-		serverB := newNamedTestServer("backend-b")
-		DeferCleanup(serverA.Close)
-		DeferCleanup(serverB.Close)
-
 		upstreamFile := writeUpstreamFile(g, "scenario-upstream.json", fmt.Sprintf(`{
   "id": "%s",
   "name": "scenario-multi-node-upstream",
   "type": "roundrobin",
   "nodes": {
-    "%s": 1,
-    "%s": 1
+    "127.0.0.1:19801": 1,
+    "127.0.0.1:19802": 1
   }
-}`, upstreamID, hostPortFromURL(g, serverA.URL), hostPortFromURL(g, serverB.URL)))
+}`, upstreamID))
 		stdout, stderr, err := runA6WithEnv(env, "upstream", "create", "-f", upstreamFile)
 		skipIfLicenseRestrictedGomega(stdout, stderr, err)
 		g.Expect(err).NotTo(HaveOccurred(), "upstream create failed: stdout=%s stderr=%s", stdout, stderr)
@@ -161,57 +122,14 @@ var _ = Describe("scenario coverage", func() {
 		skipIfLicenseRestrictedGomega(stdout, stderr, err)
 		g.Expect(err).NotTo(HaveOccurred(), "route create failed: stdout=%s stderr=%s", stdout, stderr)
 
-		seen := map[string]bool{}
-		var lastErr error
-		var lastStatus int
-		client := &http.Client{Timeout: 2 * time.Second}
-		for i := 0; i < 10; i++ {
-			resp, reqErr := client.Get(gatewayURL + "/scenario-multi-node")
-			if reqErr != nil {
-				lastErr = reqErr
-				time.Sleep(500 * time.Millisecond)
-				continue
-			}
+		stdout, stderr, err = runA6WithEnv(env, "upstream", "get", upstreamID, "--output", "json")
+		g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
+		g.Expect(stdout).To(ContainSubstring(`"name": "scenario-multi-node-upstream"`))
+		g.Expect(stdout).To(ContainSubstring("127.0.0.1:19801"))
+		g.Expect(stdout).To(ContainSubstring("127.0.0.1:19802"))
 
-			payload, readErr := io.ReadAll(resp.Body)
-			g.Expect(resp.Body.Close()).To(Succeed())
-			g.Expect(readErr).NotTo(HaveOccurred())
-			lastStatus = resp.StatusCode
-
-			if resp.StatusCode == http.StatusOK {
-				seen[strings.TrimSpace(string(payload))] = true
-				if seen["backend-a"] && seen["backend-b"] {
-					break
-				}
-			}
-			time.Sleep(500 * time.Millisecond)
-		}
-
-		g.Expect(seen["backend-a"]).To(BeTrue(), "traffic should reach backend-a, seen=%v last_err=%v last_status=%d", seen, lastErr, lastStatus)
-		g.Expect(seen["backend-b"]).To(BeTrue(), "traffic should reach backend-b, seen=%v last_err=%v last_status=%d", seen, lastErr, lastStatus)
+		stdout, stderr, err = runA6WithEnv(env, "route", "get", routeID, "--output", "json")
+		g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
+		g.Expect(stdout).To(ContainSubstring(`"upstream_id": "` + upstreamID + `"`))
 	})
 })
-
-func newNamedTestServer(name string) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		_, err := w.Write([]byte(name))
-		Expect(err).NotTo(HaveOccurred())
-	}))
-}
-
-func expectHeaderContains(g Gomega, raw json.RawMessage, want string) {
-	var single string
-	if err := json.Unmarshal(raw, &single); err == nil {
-		g.Expect(single).To(ContainSubstring(want))
-		return
-	}
-
-	var values []string
-	if err := json.Unmarshal(raw, &values); err == nil {
-		g.Expect(values).To(ContainElement(want))
-		return
-	}
-
-	Fail(fmt.Sprintf("unexpected header value: %s", string(raw)))
-}

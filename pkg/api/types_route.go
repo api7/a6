@@ -28,11 +28,11 @@ type Route struct {
 
 // RouteUpstream defines an inline upstream for a route.
 type RouteUpstream struct {
-	Type    string                 `json:"type,omitempty" yaml:"type,omitempty"`
-	Nodes   map[string]interface{} `json:"nodes,omitempty" yaml:"nodes,omitempty"`
-	Scheme  string                 `json:"scheme,omitempty" yaml:"scheme,omitempty"`
-	Retries *int                   `json:"retries,omitempty" yaml:"retries,omitempty"`
-	Timeout *RouteTimeout          `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+	Type    string        `json:"type,omitempty" yaml:"type,omitempty"`
+	Nodes   UpstreamNodes `json:"nodes,omitempty" yaml:"nodes,omitempty"`
+	Scheme  string        `json:"scheme,omitempty" yaml:"scheme,omitempty"`
+	Retries *int          `json:"retries,omitempty" yaml:"retries,omitempty"`
+	Timeout *RouteTimeout `json:"timeout,omitempty" yaml:"timeout,omitempty"`
 }
 
 // RouteTimeout defines timeout settings.
