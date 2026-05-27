@@ -25,7 +25,10 @@ List of project documents and their specific purpose:
 | `docs/documentation-maintenance.md` | Doc update rules | After any code change |
 | `docs/skills.md` | AI agent skill format, taxonomy, authoring guide | When adding or modifying skills |
 | `docs/user-guide/getting-started.md` | Installation, first context, quick start | New users, onboarding |
-| `docs/user-guide/configuration.md` | Config file, env vars, context commands | When working with config/context |
+| `docs/user-guide/configuration.md` | Config file, env vars, override precedence | When working with config files / env vars |
+| `docs/user-guide/context.md` | `a6 context` command reference | When working with the context command |
+| `docs/user-guide/version.md` | `a6 version` output and use cases | When filing bug reports / verifying installs |
+| `docs/user-guide/conditional-plugins.md` | Plugins that need APISIX-side enabling (skywalking et al) and test-coverage states | When a plugin fails with "unknown plugin" or "not enabled" |
 | `.github/workflows/ci.yml` | Unit test + lint CI workflow | When modifying CI |
 | `.github/workflows/e2e.yml` | E2E test CI with real APISIX | When modifying e2e infrastructure |
 
@@ -54,7 +57,7 @@ a6/
 ├── pkg/iostreams/                 # I/O abstraction (TTY detection)
 ├── pkg/cmdutil/                   # Shared command utilities
 ├── pkg/tableprinter/              # Table output rendering
-├── pkg/httpmock/                  # Legacy HTTP mocking helpers still under migration
+├── pkg/httpmock/                  # HTTP mocking helpers for unit tests
 ├── internal/config/               # Configuration/context management
 ├── internal/version/              # Build version info
 ├── docs/                          # All documentation
@@ -160,6 +163,23 @@ Example: feat(route): add route list command with table output
 5. Never use global state. Always inject dependencies via the Factory.
 6. Run `make check` before committing. All checks must pass.
 7. Do not add new mock-Admin-API command tests. Use real e2e coverage for command behavior.
+
+### Bug-Class Audit Protocol
+When a live-validation bug is found (e.g. surfaced by the GA smoke walkthrough or a real user report), don't just fix the single occurrence. Identify the **bug class** — the underlying shape that produced it — and audit the rest of the codebase for the same shape before closing.
+
+Trigger: you reproduce a bug in production code. Before opening the fix PR:
+
+1. **Name the class.** What is the *shape* of this bug? Examples:
+   - "JSON unmarshal of an APISIX response that changed shape across versions" (e.g. `nodes` becoming an object in 3.x).
+   - "Success message echoes a server-returned field that doesn't actually carry the resource id."
+   - "`validate` accepts unknown top-level keys because the typed struct has no field for them."
+   - "Command path assembles `<a>/<b>` and silently strips one half when the file payload disagrees."
+2. **Grep for the same shape.** Use the file/symbol patterns that match the class, not just the resource that surfaced it. For an unmarshal-shape bug, grep every `*_response.go` or `Unmarshal` call site, not only the one you hit. For a success-message bug, grep every `fmt.Fprintf.*deleted\|created\|updated` line.
+3. **Decide per hit.** For each match: confirm it's affected, confirm it's exempt, or convert it to a separate sub-issue. Don't bundle unrelated fixes into the same PR — list the matches in the PR description even if you defer them.
+4. **Generalise the test.** When possible, add the test at the *class* level (e.g. unmarshal-shape test across two response variants) rather than only the single resource that surfaced the bug.
+5. **Note the class in the PR.** Even if only one fix lands, the description must say "audited X other call sites; Y were unaffected, Z tracked as #N." Future readers should be able to tell the audit happened.
+
+Reference: the a7 protocol that this mirrors — a7 PR #32 audited every `*/create.go` after `BUG-2/BUG-3` turned out to share a `json.RawMessage`→YAML byte-array root cause; a7 PR #33 generalised "reject empty `upstreams: []`" to "reject bare and null forms too." These are the shape and granularity expected here.
 
 ### Environment Variables
 | Variable | Purpose | Default |

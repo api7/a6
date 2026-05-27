@@ -181,6 +181,8 @@ a6 debug logs --container apisix --tail 50 --follow
 
 ## Managing Multiple Contexts
 
+The summary below is enough to get going. For the full command reference (`create` / `use` / `list` / `current` / `delete`) plus tips on using `--context` for one-off overrides, see the [Context Guide](context.md).
+
 You can create multiple contexts for different environments like staging or production.
 
 ```bash
@@ -238,8 +240,13 @@ For full usage details across resource types, see the [Bulk Operations Guide](bu
 
 ## What's Next
 
-- Check the [Configuration Guide](configuration.md) for detailed configuration options.
-- See the [Route Management Guide](route.md) for comprehensive route CRUD operations.
+- [Configuration](configuration.md) — config file format, env vars, override precedence.
+- [Context](context.md) — direct reference for `a6 context` commands.
+- [Route Management](route.md) — comprehensive route CRUD.
+- [Declarative Config](declarative-config.md) — `a6 config dump / diff / sync / validate` workflow.
+- [Conditional Plugins](conditional-plugins.md) — plugins that need APISIX-side enabling (skywalking et al) and how the test suite handles them.
+- [Auto-Update](auto-update.md) — keeping a6 itself up to date.
+- [Version](version.md) — what `a6 version` shows and when to use it.
 
 ## Keeping a6 Up To Date
 

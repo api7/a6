@@ -4,7 +4,7 @@ This document defines the per-PR development plan for the a6 CLI. Each PR is sel
 
 **Audience**: AI coding agents and human developers. Each PR section contains enough detail to be implemented autonomously.
 
-> **Status: ✅ Phase 1-3 COMPLETE (27 PRs)** — Phase 4 (AI Agent Skills, PR-28 through PR-36) is in progress.
+> **Status: ✅ Phase 1-4 COMPLETE (36 PRs)** — All phases shipped. Phase 4 (AI Agent Skills, PR-28 through PR-36) merged as GitHub PRs #1 to #9 in March 2026. Post-merge work tracked under the GA-readiness epic ([#33](https://github.com/api7/a6/issues/33)).
 
 ---
 
@@ -1369,12 +1369,12 @@ Phase 4 adds AI agent skill files (`SKILL.md`) that enable AI coding agents to w
 | PR-25 | Bulk Operations | 3 | ✅ | Bulk delete/export by label |
 | PR-26 | Auto-Update | 3 | ✅ | Version + update check |
 | PR-27 | CLI Extensions | 3 | ✅ | Extension management lifecycle |
-| PR-28 | Skills Infra + Shared Skill | 4 | 🚧 | CI validation |
-| PR-29 | Auth Plugin Skills | 4 | ⬚ | CI validation |
-| PR-30 | Security + Rate Limiting Skills | 4 | ⬚ | CI validation |
-| PR-31 | Traffic + Transformation Skills | 4 | ⬚ | CI validation |
-| PR-32 | Operational Recipe Skills | 4 | ⬚ | CI validation |
-| PR-33 | AI Gateway Skills | 4 | ⬚ | CI validation |
-| PR-34 | Observability Skills | 4 | ⬚ | CI validation |
-| PR-35 | Advanced Plugin Skills | 4 | ⬚ | CI validation |
-| PR-36 | Advanced Recipes + Personas | 4 | ⬚ | CI validation |
+| PR-28 | Skills Infra + Shared Skill | 4 | ✅ | CI validation (GitHub PR #1) |
+| PR-29 | Auth Plugin Skills | 4 | ✅ | CI validation (GitHub PR #2) |
+| PR-30 | Security + Rate Limiting Skills | 4 | ✅ | CI validation (GitHub PR #3) |
+| PR-31 | Traffic + Transformation Skills | 4 | ✅ | CI validation (GitHub PR #4) |
+| PR-32 | Operational Recipe Skills | 4 | ✅ | CI validation (GitHub PR #5) |
+| PR-33 | AI Gateway Skills | 4 | ✅ | CI validation (GitHub PR #6) |
+| PR-34 | Observability Skills | 4 | ✅ | CI validation (GitHub PR #7) |
+| PR-35 | Advanced Plugin Skills | 4 | ✅ | CI validation (GitHub PR #8) |
+| PR-36 | Advanced Recipes + Personas | 4 | ✅ | CI validation (GitHub PR #9) |
