@@ -58,4 +58,3 @@ var _ = Describe("debug trace command", func() {
 		))
 	})
 })
-

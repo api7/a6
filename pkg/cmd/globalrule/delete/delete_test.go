@@ -93,4 +93,3 @@ func TestGlobalruleDelete_AllWithID(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--all cannot be used with a specific ID")
 }
-
