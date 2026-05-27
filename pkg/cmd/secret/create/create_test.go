@@ -67,6 +67,33 @@ func TestSecretCreate_Success(t *testing.T) {
 	reg.Verify(t)
 }
 
+func TestStripConflictingID(t *testing.T) {
+	// File declares `id: my-vault` but positional is `vault/my-vault`; mismatched
+	// id must be stripped so APISIX doesn't reject with "wrong secret id".
+	p := stripConflictingID(map[string]interface{}{
+		"id":    "my-vault",
+		"token": "t",
+	}, "vault/my-vault")
+	_, has := p["id"]
+	assert.False(t, has, "mismatched body id should be stripped")
+	assert.Equal(t, "t", p["token"])
+
+	// Matching id is preserved.
+	p = stripConflictingID(map[string]interface{}{
+		"id":    "vault/my-vault",
+		"token": "t",
+	}, "vault/my-vault")
+	assert.Equal(t, "vault/my-vault", p["id"])
+
+	// No id key, unchanged.
+	p = stripConflictingID(map[string]interface{}{"token": "t"}, "vault/my-vault")
+	_, has = p["id"]
+	assert.False(t, has)
+
+	// Nil payload safe.
+	assert.Nil(t, stripConflictingID(nil, "vault/x"))
+}
+
 func TestSecretCreate_MissingFile(t *testing.T) {
 	ios, _, _, _ := iostreams.Test()
 

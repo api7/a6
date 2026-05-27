@@ -81,6 +81,8 @@ func createRun(opts *Options) error {
 		}
 	}
 
+	payload = stripConflictingID(payload, opts.ID)
+
 	client := api.NewClient(httpClient, cfg.BaseURL())
 
 	body, err := client.Put(fmt.Sprintf("/apisix/admin/secrets/%s", opts.ID), payload)
@@ -103,4 +105,23 @@ func createRun(opts *Options) error {
 	}
 
 	return cmdutil.NewExporter(format, opts.IO.Out).Write(resp.Value)
+}
+
+// stripConflictingID removes the body's `id` field when it would conflict
+// with the manager-prefixed positional id (e.g. file says `id: my-vault`
+// while the positional says `vault/my-vault`). APISIX rejects the mismatch
+// with `wrong secret id`, so drop the body id and let the URL path win.
+func stripConflictingID(payload map[string]interface{}, positional string) map[string]interface{} {
+	if payload == nil {
+		return payload
+	}
+	bodyID, ok := payload["id"].(string)
+	if !ok {
+		return payload
+	}
+	if bodyID == positional {
+		return payload
+	}
+	delete(payload, "id")
+	return payload
 }
