@@ -23,6 +23,22 @@ func NewExporter(format string, writer io.Writer) *Exporter {
 	}
 }
 
+// ValidateExportFormat returns an error if format is not one of the formats
+// that Exporter.Write accepts. The empty string is treated as valid because
+// every export command defaults it to "yaml" later in its run.
+//
+// Callers should invoke this before any work that could short-circuit the
+// run (e.g. an "empty collection" early return), so an invalid -o flag is
+// rejected consistently regardless of the result set size.
+func ValidateExportFormat(format string) error {
+	switch format {
+	case "", "json", "yaml":
+		return nil
+	default:
+		return fmt.Errorf("unsupported output format: %s", format)
+	}
+}
+
 // Write formats and writes the given data.
 func (e *Exporter) Write(data interface{}) error {
 	switch e.format {

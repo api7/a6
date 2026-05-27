@@ -50,6 +50,10 @@ func NewCmdExport(f *cmd.Factory) *cobra.Command {
 }
 
 func exportRun(opts *Options) error {
+	if err := cmdutil.ValidateExportFormat(opts.Output); err != nil {
+		return err
+	}
+
 	cfg, err := opts.Config()
 	if err != nil {
 		return err

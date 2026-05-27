@@ -70,3 +70,25 @@ func TestExporter_JSONPrettyPrinted(t *testing.T) {
 	// Verify pretty printing (indented)
 	assert.Contains(t, buf.String(), "  \"key\"")
 }
+
+func TestValidateExportFormat(t *testing.T) {
+	t.Run("accepts json", func(t *testing.T) {
+		require.NoError(t, ValidateExportFormat("json"))
+	})
+	t.Run("accepts yaml", func(t *testing.T) {
+		require.NoError(t, ValidateExportFormat("yaml"))
+	})
+	t.Run("accepts empty (callers default later)", func(t *testing.T) {
+		require.NoError(t, ValidateExportFormat(""))
+	})
+	t.Run("rejects table", func(t *testing.T) {
+		err := ValidateExportFormat("table")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported output format: table")
+	})
+	t.Run("rejects garbage", func(t *testing.T) {
+		err := ValidateExportFormat("garbage-format")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported output format: garbage-format")
+	})
+}
