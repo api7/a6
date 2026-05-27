@@ -9,7 +9,7 @@ Supported resources:
 - upstream
 - consumer
 - ssl
-- global-rule
+- global-rule (does not support `--label`; APISIX does not accept labels on global rules)
 - plugin-config
 - consumer-group
 - stream-route
@@ -17,7 +17,7 @@ Supported resources:
 
 ## Bulk Delete
 
-Each supported resource delete command now supports `--all` and `--label`.
+Each supported resource delete command supports `--all`. All except `global-rule` also support `--label`.
 
 ### Delete all resources
 
@@ -40,6 +40,7 @@ a6 upstream delete --label app=payments --force
 - `--all` and `--label` are mutually exclusive.
 - You cannot combine an explicit ID/username with `--all` or `--label`.
 - Without `--force`, a6 prompts for confirmation before bulk deletion.
+- `global-rule` only supports `--all` and ID-based deletion (no `--label`).
 
 ## Bulk Export
 
@@ -77,6 +78,6 @@ a6 service export --output json --file services.json
 
 ### Export flags
 
-- `--label key=value`: Export only matching resources.
+- `--label key=value`: Export only matching resources. Not supported by `global-rule export`.
 - `--output, -o`: Output format (`yaml` or `json`).
 - `--file, -f`: Write output to file instead of stdout.

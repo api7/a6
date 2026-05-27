@@ -69,43 +69,6 @@ func TestGlobalRuleExport_BasicYAML(t *testing.T) {
 	assert.NotContains(t, out, "update_time")
 }
 
-func TestGlobalRuleExport_WithLabelFilter(t *testing.T) {
-	calledWithLabelKey := false
-	transport := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-		if req.Method == http.MethodGet && req.URL.Path == "/apisix/admin/global_rules" {
-			if req.URL.Query().Get("label") == "scope" {
-				calledWithLabelKey = true
-			}
-			return &http.Response{
-				StatusCode: 200,
-				Header:     http.Header{"Content-Type": []string{"application/json"}},
-				Body:       io.NopCloser(strings.NewReader(`{"total":1,"list":[{"key":"/apisix/global_rules/gr1","value":{"id":"gr1","plugins":{"prometheus":{}},"labels":{"scope":"global"}}}]}`)),
-			}, nil
-		}
-		return &http.Response{StatusCode: 404, Body: io.NopCloser(strings.NewReader(`{"error_msg":"not found"}`))}, nil
-	})
-
-	ios, _, stdout, _ := iostreams.Test()
-	f := &cmd.Factory{
-		IOStreams: ios,
-		HttpClient: func() (*http.Client, error) {
-			return &http.Client{Transport: transport}, nil
-		},
-		Config: func() (config.Config, error) {
-			return &mockConfig{baseURL: "http://localhost:9180"}, nil
-		},
-	}
-
-	c := NewCmdExport(f)
-	c.SetArgs([]string{"--label", "scope=global", "--output", "json"})
-	err := c.Execute()
-
-	require.NoError(t, err)
-	assert.True(t, calledWithLabelKey, "should send label key to API")
-	out := stdout.String()
-	assert.Contains(t, out, "prometheus")
-}
-
 func TestGlobalRuleExport_EmptyResult(t *testing.T) {
 	transport := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
 		if req.Method == http.MethodGet && req.URL.Path == "/apisix/admin/global_rules" {

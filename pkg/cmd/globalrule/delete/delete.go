@@ -25,7 +25,6 @@ type Options struct {
 	ID    string
 	Force bool
 	All   bool
-	Label string
 }
 
 func NewCmdDelete(f *cmd.Factory) *cobra.Command {
@@ -43,14 +42,8 @@ func NewCmdDelete(f *cmd.Factory) *cobra.Command {
 			if len(args) > 0 {
 				opts.ID = args[0]
 			}
-			if opts.All && opts.Label != "" {
-				return fmt.Errorf("--all and --label are mutually exclusive")
-			}
 			if opts.All && opts.ID != "" {
 				return fmt.Errorf("--all cannot be used with a specific ID")
-			}
-			if opts.Label != "" && opts.ID != "" {
-				return fmt.Errorf("--label cannot be used with a specific ID")
 			}
 			return deleteRun(opts)
 		},
@@ -58,13 +51,12 @@ func NewCmdDelete(f *cmd.Factory) *cobra.Command {
 
 	cmd.Flags().BoolVar(&opts.Force, "force", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVar(&opts.All, "all", false, "Delete all global rules")
-	cmd.Flags().StringVar(&opts.Label, "label", "", "Delete global rules matching label (key=value)")
 
 	return cmd
 }
 
 func deleteRun(opts *Options) error {
-	if opts.All || opts.Label != "" {
+	if opts.All {
 		return bulkDeleteGlobalRules(opts)
 	}
 
@@ -127,7 +119,7 @@ func bulkDeleteGlobalRules(opts *Options) error {
 	}
 
 	client := api.NewClient(httpClient, cfg.BaseURL())
-	ids, err := listAllGlobalRuleIDs(client, opts.Label)
+	ids, err := listAllGlobalRuleIDs(client)
 	if err != nil {
 		return fmt.Errorf("%s", cmdutil.FormatAPIError(err))
 	}
@@ -163,19 +155,15 @@ func bulkDeleteGlobalRules(opts *Options) error {
 	return nil
 }
 
-func listAllGlobalRuleIDs(client *api.Client, label string) ([]string, error) {
+func listAllGlobalRuleIDs(client *api.Client) ([]string, error) {
 	page := 1
 	pageSize := 500
 	ids := make([]string, 0)
-	labelKey, _ := cmdutil.ParseLabel(label)
 
 	for {
 		query := map[string]string{
 			"page":      fmt.Sprintf("%d", page),
 			"page_size": fmt.Sprintf("%d", pageSize),
-		}
-		if labelKey != "" {
-			query["label"] = labelKey
 		}
 
 		body, err := client.Get("/apisix/admin/global_rules", query)

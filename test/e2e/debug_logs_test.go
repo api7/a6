@@ -3,7 +3,6 @@
 package e2e
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,9 +19,6 @@ func TestDebugLogs_DockerMode(t *testing.T) {
 func TestDebugLogs_AutoDetectContainer(t *testing.T) {
 	env := setupRouteEnv(t)
 	stdout, stderr, err := runA6WithEnv(env, "debug", "logs", "--tail", "10")
-	if err != nil && strings.Contains(stderr, "no APISIX container found") {
-		t.Skipf("skipping auto-detect test because no CI-style apisix container is running: %s", stderr)
-	}
 	require.NoError(t, err, "debug logs auto-detect failed: stdout=%s stderr=%s", stdout, stderr)
 	assert.NotEmpty(t, stdout)
 }
