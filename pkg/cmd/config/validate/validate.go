@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -20,6 +21,22 @@ import (
 )
 
 var idPattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
+
+var supportedConfigSections = map[string]struct{}{
+	"version":         {},
+	"routes":          {},
+	"services":        {},
+	"upstreams":       {},
+	"consumers":       {},
+	"ssl":             {},
+	"global_rules":    {},
+	"plugin_configs":  {},
+	"consumer_groups": {},
+	"stream_routes":   {},
+	"protos":          {},
+	"secrets":         {},
+	"plugin_metadata": {},
+}
 
 type Options struct {
 	IO     *iostreams.IOStreams
@@ -60,18 +77,41 @@ func validateRun(opts *Options) error {
 	}
 
 	var cfg api.ConfigFile
+	var unknownKeys []string
 	trimmed := bytes.TrimSpace(data)
 	if len(trimmed) > 0 && (trimmed[0] == '{' || trimmed[0] == '[') {
 		if err := json.Unmarshal(trimmed, &cfg); err != nil {
 			return fmt.Errorf("failed to parse JSON file: %w", err)
 		}
+		raw := map[string]json.RawMessage{}
+		if err := json.Unmarshal(trimmed, &raw); err != nil {
+			return fmt.Errorf("failed to parse JSON file: %w", err)
+		}
+		for k := range raw {
+			if _, ok := supportedConfigSections[k]; !ok {
+				unknownKeys = append(unknownKeys, k)
+			}
+		}
 	} else {
 		if err := yaml.Unmarshal(trimmed, &cfg); err != nil {
 			return fmt.Errorf("failed to parse YAML file: %w", err)
 		}
+		raw := map[string]yaml.Node{}
+		if err := yaml.Unmarshal(trimmed, &raw); err != nil {
+			return fmt.Errorf("failed to parse YAML file: %w", err)
+		}
+		for k := range raw {
+			if _, ok := supportedConfigSections[k]; !ok {
+				unknownKeys = append(unknownKeys, k)
+			}
+		}
 	}
 
 	errs := ValidateConfigFile(cfg)
+	sort.Strings(unknownKeys)
+	for _, k := range unknownKeys {
+		errs = append(errs, fmt.Sprintf("unsupported top-level section %q", k))
+	}
 	if len(errs) > 0 {
 		return fmt.Errorf("config validation failed:\n- %s", strings.Join(errs, "\n- "))
 	}

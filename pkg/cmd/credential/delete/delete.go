@@ -2,7 +2,6 @@ package delete
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -76,20 +75,10 @@ func deleteRun(opts *Options) error {
 	}
 
 	client := api.NewClient(httpClient, cfg.BaseURL())
-	body, err := client.Delete(fmt.Sprintf("/apisix/admin/consumers/%s/credentials/%s", opts.Consumer, opts.ID), nil)
-	if err != nil {
+	if _, err := client.Delete(fmt.Sprintf("/apisix/admin/consumers/%s/credentials/%s", opts.Consumer, opts.ID), nil); err != nil {
 		return fmt.Errorf("%s", cmdutil.FormatAPIError(err))
 	}
 
-	var resp api.DeleteResponse
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	deletedID := resp.Deleted
-	if deletedID == "" {
-		deletedID = opts.ID
-	}
-	fmt.Fprintf(opts.IO.Out, "✓ Credential %s deleted for consumer %s.\n", deletedID, opts.Consumer)
+	fmt.Fprintf(opts.IO.Out, "✓ Credential %s deleted for consumer %s.\n", opts.ID, opts.Consumer)
 	return nil
 }

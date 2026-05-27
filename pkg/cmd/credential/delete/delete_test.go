@@ -28,8 +28,10 @@ func (m *mockConfig) SetCurrentContext(name string) error             { return n
 func (m *mockConfig) Save() error                                     { return nil }
 
 func TestCredentialDelete_WithForce(t *testing.T) {
+	// APISIX actually returns `deleted` as a count ("1"), not the resource id.
+	// The CLI must echo the requested id in the success message.
 	reg := &httpmock.Registry{}
-	reg.Register(http.MethodDelete, "/apisix/admin/consumers/jack/credentials/cred-1", httpmock.JSONResponse(`{"key":"/apisix/consumers/jack/credentials/cred-1","deleted":"cred-1"}`))
+	reg.Register(http.MethodDelete, "/apisix/admin/consumers/jack/credentials/cred-1", httpmock.JSONResponse(`{"key":"/apisix/consumers/jack/credentials/cred-1","deleted":"1"}`))
 
 	ios, _, stdout, _ := iostreams.Test()
 
@@ -47,6 +49,7 @@ func TestCredentialDelete_WithForce(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Contains(t, stdout.String(), "Credential cred-1 deleted for consumer jack.")
+	assert.NotContains(t, stdout.String(), "Credential 1 deleted")
 	reg.Verify(t)
 }
 

@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -36,6 +38,42 @@ type HealthCheckResponse struct {
 	Nodes []HealthCheckNode `json:"nodes"`
 	Type  string            `json:"type"`
 	Name  string            `json:"name"`
+}
+
+// UnmarshalJSON accepts both the older array shape and the APISIX >= 3.x
+// object shape for `nodes` (keyed by "<ip>:<port>").
+func (r *HealthCheckResponse) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Type  string          `json:"type"`
+		Name  string          `json:"name"`
+		Nodes json.RawMessage `json:"nodes"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	r.Type = raw.Type
+	r.Name = raw.Name
+	r.Nodes = nil
+	if len(raw.Nodes) == 0 || string(raw.Nodes) == "null" {
+		return nil
+	}
+	if err := json.Unmarshal(raw.Nodes, &r.Nodes); err == nil {
+		return nil
+	}
+	var nodeMap map[string]HealthCheckNode
+	if err := json.Unmarshal(raw.Nodes, &nodeMap); err != nil {
+		return fmt.Errorf("nodes: expected array or object, got: %s", string(raw.Nodes))
+	}
+	keys := make([]string, 0, len(nodeMap))
+	for k := range nodeMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	r.Nodes = make([]HealthCheckNode, 0, len(keys))
+	for _, k := range keys {
+		r.Nodes = append(r.Nodes, nodeMap[k])
+	}
+	return nil
 }
 
 type HealthCheckNode struct {
@@ -96,9 +134,13 @@ func healthRun(opts *Options) error {
 
 	controlURL := opts.ControlURL
 	if controlURL == "" {
-		controlURL, err = deriveControlURL(cfg.BaseURL())
-		if err != nil {
-			return fmt.Errorf("failed to derive control API URL: %w", err)
+		if env := os.Getenv("A6_CONTROL_URL"); env != "" {
+			controlURL = env
+		} else {
+			controlURL, err = deriveControlURL(cfg.BaseURL())
+			if err != nil {
+				return fmt.Errorf("failed to derive control API URL: %w", err)
+			}
 		}
 	}
 
