@@ -158,6 +158,47 @@ routes:
 	assert.Contains(t, err.Error(), "either uri or uris is required")
 }
 
+func TestConfigValidate_RejectsUnknownSection(t *testing.T) {
+	ios, _, _, _ := iostreams.Test()
+
+	filePath := filepath.Join(t.TempDir(), "config.yaml")
+	err := os.WriteFile(filePath, []byte(`
+version: "1"
+unsupported_section:
+  - id: x
+routes:
+  - id: "route-1"
+    uri: /hello
+`), 0o644)
+	require.NoError(t, err)
+
+	c := NewCmdValidate(factoryWithIO(ios))
+	c.SetArgs([]string{"-f", filePath})
+	err = c.Execute()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported_section")
+}
+
+func TestConfigValidate_RejectsUnknownSectionJSON(t *testing.T) {
+	ios, _, _, _ := iostreams.Test()
+
+	filePath := filepath.Join(t.TempDir(), "config.json")
+	err := os.WriteFile(filePath, []byte(`{
+		"version": "1",
+		"upstream_groups": [],
+		"routes": [{"id": "route-1", "uri": "/hello"}]
+	}`), 0o644)
+	require.NoError(t, err)
+
+	c := NewCmdValidate(factoryWithIO(ios))
+	c.SetArgs([]string{"-f", filePath})
+	err = c.Execute()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "upstream_groups")
+}
+
 func TestConfigValidate_MissingConsumerUsername(t *testing.T) {
 	ios, _, _, _ := iostreams.Test()
 
