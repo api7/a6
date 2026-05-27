@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -99,14 +98,4 @@ func writeUpstreamFile(g Gomega, name, body string) string {
 
 func writePluginConfigFile(g Gomega, name, body string) string {
 	return writeTempFile(g, name, body)
-}
-
-func skipIfLicenseRestrictedGomega(stdout, stderr string, err error) {
-	if err == nil {
-		return
-	}
-	combined := stdout + stderr
-	if strings.Contains(combined, "requires a sufficient license") {
-		Skip("environment blocks scenario coverage with a license gate: " + strings.TrimSpace(combined))
-	}
 }

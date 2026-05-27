@@ -333,9 +333,6 @@ func TestCoverageFlags_DebugTraceGatewayURLFlag(t *testing.T) {
 
 func TestCoverageFlags_DebugLogsTypeFlag(t *testing.T) {
 	env := setupRouteEnv(t)
-	if _, _, err := runA6WithEnv(env, "debug", "logs", "--container", "apisix", "--tail", "1"); err != nil {
-		t.Skipf("skipping debug logs type tests because docker logs is unavailable: %v", err)
-	}
 
 	stdout, stderr, err := runA6WithEnv(env, "debug", "logs", "--container", "apisix", "--tail", "5", "--type", "error")
 	require.NoError(t, err, "debug logs --type error failed: stdout=%s stderr=%s", stdout, stderr)
@@ -346,9 +343,6 @@ func TestCoverageFlags_DebugLogsTypeFlag(t *testing.T) {
 
 func TestCoverageFlags_DebugLogsOutputJSONFlag(t *testing.T) {
 	env := setupRouteEnv(t)
-	if _, _, err := runA6WithEnv(env, "debug", "logs", "--container", "apisix", "--tail", "1"); err != nil {
-		t.Skipf("skipping debug logs json test because docker logs is unavailable: %v", err)
-	}
 
 	stdout, stderr, err := runA6WithEnv(env, "debug", "logs", "--container", "apisix", "--tail", "5", "--output", "json")
 	require.NoError(t, err, "debug logs --output json failed: stdout=%s stderr=%s", stdout, stderr)

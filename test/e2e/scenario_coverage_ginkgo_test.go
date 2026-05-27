@@ -38,7 +38,6 @@ var _ = Describe("scenario coverage", func() {
   }
 }`, serviceID, hostPortFromURL(g, httpbinURL)))
 		stdout, stderr, err := runA6WithEnv(env, "service", "create", "-f", serviceFile)
-		skipIfLicenseRestrictedGomega(stdout, stderr, err)
 		g.Expect(err).NotTo(HaveOccurred(), "service create failed: stdout=%s stderr=%s", stdout, stderr)
 
 		pluginConfigFile := writePluginConfigFile(g, "scenario-plugin-config.json", fmt.Sprintf(`{
@@ -55,7 +54,6 @@ var _ = Describe("scenario coverage", func() {
   }
 }`, pluginConfigID))
 		stdout, stderr, err = runA6WithEnv(env, "plugin-config", "create", "-f", pluginConfigFile)
-		skipIfLicenseRestrictedGomega(stdout, stderr, err)
 		g.Expect(err).NotTo(HaveOccurred(), "plugin-config create failed: stdout=%s stderr=%s", stdout, stderr)
 
 		routeFile := writeRouteFile(g, "scenario-route.json", fmt.Sprintf(`{
@@ -66,7 +64,6 @@ var _ = Describe("scenario coverage", func() {
   "plugin_config_id": "%s"
 }`, routeID, serviceID, pluginConfigID))
 		stdout, stderr, err = runA6WithEnv(env, "route", "create", "-f", routeFile)
-		skipIfLicenseRestrictedGomega(stdout, stderr, err)
 		g.Expect(err).NotTo(HaveOccurred(), "route create failed: stdout=%s stderr=%s", stdout, stderr)
 
 		stdout, stderr, err = runA6WithEnv(env, "route", "get", routeID, "--output", "json")
@@ -109,7 +106,6 @@ var _ = Describe("scenario coverage", func() {
   }
 }`, upstreamID))
 		stdout, stderr, err := runA6WithEnv(env, "upstream", "create", "-f", upstreamFile)
-		skipIfLicenseRestrictedGomega(stdout, stderr, err)
 		g.Expect(err).NotTo(HaveOccurred(), "upstream create failed: stdout=%s stderr=%s", stdout, stderr)
 
 		routeFile := writeRouteFile(g, "scenario-multi-route.json", fmt.Sprintf(`{
@@ -119,7 +115,6 @@ var _ = Describe("scenario coverage", func() {
   "upstream_id": "%s"
 }`, routeID, upstreamID))
 		stdout, stderr, err = runA6WithEnv(env, "route", "create", "-f", routeFile)
-		skipIfLicenseRestrictedGomega(stdout, stderr, err)
 		g.Expect(err).NotTo(HaveOccurred(), "route create failed: stdout=%s stderr=%s", stdout, stderr)
 
 		stdout, stderr, err = runA6WithEnv(env, "upstream", "get", upstreamID, "--output", "json")

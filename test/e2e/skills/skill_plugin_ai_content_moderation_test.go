@@ -35,9 +35,7 @@ func TestSkillPluginAIContentModeration(t *testing.T) {
 	}`
 	f := writeJSON(t, "route", routeJSON)
 	stdout, stderr, err := runA6WithEnv(env, "route", "create", "-f", f)
-	if err != nil {
-		t.Skipf("skipping: plugin config rejected by APISIX: stdout=%s stderr=%s", stdout, stderr)
-	}
+	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 
 	stdout, _, err = runA6WithEnv(env, "route", "get", routeID, "--output", "json")
 	require.NoError(t, err)

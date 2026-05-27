@@ -280,27 +280,18 @@ func TestExport_GlobalRule(t *testing.T) {
 		deleteGlobalRuleViaAdmin(t, id3)
 	})
 
-	body1 := fmt.Sprintf(`{"id":"%s","plugins":{"prometheus":{}},"labels":{"suite":"exp-gr"}}`, id1)
-	body2 := fmt.Sprintf(`{"id":"%s","plugins":{"prometheus":{}},"labels":{"suite":"exp-gr"}}`, id2)
-	body3 := fmt.Sprintf(`{"id":"%s","plugins":{"prometheus":{}},"labels":{"suite":"exp-gr-other"}}`, id3)
+	// APISIX enforces one global_rule per plugin type, so use a distinct plugin per rule.
+	body1 := fmt.Sprintf(`{"id":"%s","plugins":{"prometheus":{}}}`, id1)
+	body2 := fmt.Sprintf(`{"id":"%s","plugins":{"request-id":{}}}`, id2)
+	body3 := fmt.Sprintf(`{"id":"%s","plugins":{"proxy-control":{}}}`, id3)
 
 	for i, body := range []string{body1, body2, body3} {
 		createFile := writeJSONFile(t, fmt.Sprintf("global-rule-export-%d.json", i+1), body)
 		stdout, stderr, err := runA6WithEnv(env, "global-rule", "create", "-f", createFile)
-		if err != nil && strings.Contains(stderr, "additional properties forbidden, found labels") {
-			t.Skip("global-rule labels are not supported by current APISIX")
-		}
 		require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 	}
 
-	stdout, stderr, err := runA6WithEnv(env, "global-rule", "export", "--label", "suite=exp-gr", "--output", "json")
-	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
-	ids := strings.Join(collectFieldValues(parseJSONArrayOutput(t, stdout), "id"), ",")
-	assert.Contains(t, ids, id1)
-	assert.Contains(t, ids, id2)
-	assert.NotContains(t, ids, id3)
-
-	stdout, stderr, err = runA6WithEnv(env, "global-rule", "export", "--output", "json")
+	stdout, stderr, err := runA6WithEnv(env, "global-rule", "export", "--output", "json")
 	require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 	allIDs := strings.Join(collectFieldValues(parseJSONArrayOutput(t, stdout), "id"), ",")
 	assert.Contains(t, allIDs, id1)
@@ -509,9 +500,6 @@ func TestExport_StreamRoute(t *testing.T) {
 	for i, body := range []string{body1, body2, body3} {
 		createFile := writeJSONFile(t, fmt.Sprintf("stream-route-export-%d.json", i+1), body)
 		stdout, stderr, err := runA6WithEnv(env, "stream-route", "create", "-f", createFile)
-		if err != nil && strings.Contains(stderr, "stream mode is disabled") {
-			t.Skip("stream mode is disabled in current APISIX")
-		}
 		require.NoError(t, err, "stdout=%s stderr=%s", stdout, stderr)
 	}
 

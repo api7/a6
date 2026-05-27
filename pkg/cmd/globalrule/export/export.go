@@ -21,7 +21,6 @@ type Options struct {
 	Client func() (*http.Client, error)
 	Config func() (config.Config, error)
 
-	Label  string
 	Output string
 	File   string
 }
@@ -42,7 +41,6 @@ func NewCmdExport(f *cmd.Factory) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.Label, "label", "", "Filter by label (key=value)")
 	cmd.Flags().StringVarP(&opts.Output, "output", "o", "yaml", "Output format: json, yaml")
 	cmd.Flags().StringVarP(&opts.File, "file", "f", "", "Write output to file")
 
@@ -62,7 +60,7 @@ func exportRun(opts *Options) error {
 
 	client := api.NewClient(httpClient, cfg.BaseURL())
 
-	items, err := fetchAll(client, opts.Label)
+	items, err := fetchAll(client)
 	if err != nil {
 		return fmt.Errorf("%s", cmdutil.FormatAPIError(err))
 	}
@@ -98,19 +96,15 @@ func exportRun(opts *Options) error {
 	return cmdutil.NewExporter(format, out).Write(globalRules)
 }
 
-func fetchAll(client *api.Client, label string) ([]api.ListItem[api.GlobalRule], error) {
+func fetchAll(client *api.Client) ([]api.ListItem[api.GlobalRule], error) {
 	page := 1
 	pageSize := 500
 	items := make([]api.ListItem[api.GlobalRule], 0)
-	labelKey, _ := cmdutil.ParseLabel(label)
 
 	for {
 		query := map[string]string{
 			"page":      fmt.Sprintf("%d", page),
 			"page_size": fmt.Sprintf("%d", pageSize),
-		}
-		if labelKey != "" {
-			query["label"] = labelKey
 		}
 
 		body, err := client.Get("/apisix/admin/global_rules", query)

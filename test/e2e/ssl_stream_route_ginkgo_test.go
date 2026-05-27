@@ -264,7 +264,6 @@ var _ = Describe("stream-route command", Ordered, func() {
   }
 			}`, jsonID))
 			stdout, stderr, err := runA6WithEnv(env, "stream-route", "create", "-f", jsonFile)
-			skipIfStreamModeDisabled(stdout, stderr, err)
 			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
 			g.Expect(stdout).To(ContainSubstring(jsonID))
 
@@ -279,7 +278,6 @@ labels:
   suite: ginkgo-stream-route-create
 `, yamlID))
 			stdout, stderr, err = runA6WithEnv(env, "stream-route", "create", "-f", yamlFile, "--output", "yaml")
-			skipIfStreamModeDisabled(stdout, stderr, err)
 			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
 			g.Expect(stdout).To(ContainSubstring("name: ginkgo-stream-route-yaml"))
 
@@ -318,7 +316,6 @@ labels:
   "labels": {"suite":"ginkgo-stream-route-list"}
 }`, id1))
 			stdout, stderr, err := runA6WithEnv(env, "stream-route", "create", "-f", file1)
-			skipIfStreamModeDisabled(stdout, stderr, err)
 			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
 
 			file2 := writeStreamRouteFile(g, "stream-route-list-2.json", fmt.Sprintf(`{
@@ -329,7 +326,6 @@ labels:
   "labels": {"suite":"ginkgo-stream-route-other"}
 }`, id2))
 			stdout, stderr, err = runA6WithEnv(env, "stream-route", "create", "-f", file2)
-			skipIfStreamModeDisabled(stdout, stderr, err)
 			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
 
 			stdout, stderr, err = runA6WithEnv(env, "stream-route", "list", "--output", "table")
@@ -376,7 +372,6 @@ labels:
   "upstream": {"type":"roundrobin","nodes":{"127.0.0.1:19814":1}}
 }`, streamRouteID))
 			stdout, stderr, err := runA6WithEnv(env, "stream-route", "create", "-f", createFile)
-			skipIfStreamModeDisabled(stdout, stderr, err)
 			g.Expect(err).NotTo(HaveOccurred(), "stdout=%s stderr=%s", stdout, stderr)
 
 			stdout, stderr, err = runA6WithEnv(env, "stream-route", "get", streamRouteID, "--output", "yaml")
@@ -408,8 +403,7 @@ labels:
 			deleteStreamRouteViaCLIByID(env, streamRouteID)
 			DeferCleanup(deleteStreamRouteViaAdminByID, g, streamRouteID)
 
-			stdout, stderr, err := runA6WithEnv(env, "stream-route", "get", streamRouteID)
-			skipIfStreamModeDisabled(stdout, stderr, err)
+			_, stderr, err := runA6WithEnv(env, "stream-route", "get", streamRouteID)
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(strings.ToLower(stderr)).To(ContainSubstring("not found"))
 
@@ -417,8 +411,7 @@ labels:
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(stderr).To(ContainSubstring("required flag"))
 
-			stdout, stderr, err = runA6WithEnv(env, "stream-route", "delete", streamRouteID, "--force")
-			skipIfStreamModeDisabled(stdout, stderr, err)
+			_, stderr, err = runA6WithEnv(env, "stream-route", "delete", streamRouteID, "--force")
 			g.Expect(err).To(HaveOccurred())
 			g.Expect(strings.ToLower(stderr)).To(ContainSubstring("not found"))
 		})
@@ -433,11 +426,3 @@ func indentPEM(value string) string {
 	return strings.Join(lines, "\n")
 }
 
-func skipIfStreamModeDisabled(stdout, stderr string, err error) {
-	if err == nil {
-		return
-	}
-	if strings.Contains(stdout+stderr, "stream mode is disabled") {
-		Skip("APISIX stream mode is disabled in this environment")
-	}
-}
