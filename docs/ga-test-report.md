@@ -57,7 +57,7 @@ Automated e2e suite went from **70 pass / 2 fail / 5 skip / 77 total** at the st
 
 `upstream health <id>` failed with:
 
-```
+```text
 failed to parse response: json: cannot unmarshal object into Go struct field HealthCheckResponse.nodes of type []health.HealthCheckNode
 ```
 
@@ -163,17 +163,27 @@ Shared shell state used throughout:
 
 ```bash
 export A6_CONFIG_DIR=/tmp/a6-ga-config
+
+# The APISIX_* vars are read by test/e2e/setup_test.go for `make test-e2e`.
 export APISIX_ADMIN_URL=http://127.0.0.1:19180
 export APISIX_GATEWAY_URL=http://127.0.0.1:19080
 export APISIX_CONTROL_URL=http://127.0.0.1:19090
 export HTTPBIN_URL=http://127.0.0.1:18080
+
+# `a6 upstream health` reads A6_CONTROL_URL (CLI env), not APISIX_CONTROL_URL.
+# Re-export so the manual walkthrough below resolves the control API without
+# repeating --control-url on every invocation.
+export A6_CONTROL_URL="$APISIX_CONTROL_URL"
+
 A6=./bin/a6 ; GA=/tmp/a6-ga ; mkdir -p $GA
 ```
 
 ### Setup — context
 
+The literal key below (`edd1c9f034335f136f87ad84b625c8f1`) is the default APISIX dev key from the upstream Apache APISIX docs — not a real secret. Real deployments must use a unique admin key; for those, replace with `<ADMIN_API_KEY>` and source it from a secret manager rather than pasting it on the command line.
+
 ```bash
-$A6 context create ga --server http://127.0.0.1:19180 --api-key edd1c9f034335f136f87ad84b625c8f1
+$A6 context create ga --server http://127.0.0.1:19180 --api-key <ADMIN_API_KEY>
 $A6 context use ga
 $A6 context list
 $A6 context current

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -107,6 +108,7 @@ func validateRun(opts *Options) error {
 	}
 
 	errs := ValidateConfigFile(cfg)
+	sort.Strings(unknownKeys)
 	for _, k := range unknownKeys {
 		errs = append(errs, fmt.Sprintf("unsupported top-level section %q", k))
 	}

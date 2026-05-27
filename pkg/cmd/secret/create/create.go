@@ -111,15 +111,17 @@ func createRun(opts *Options) error {
 // with the manager-prefixed positional id (e.g. file says `id: my-vault`
 // while the positional says `vault/my-vault`). APISIX rejects the mismatch
 // with `wrong secret id`, so drop the body id and let the URL path win.
+// Non-string `id` values (e.g. a YAML int like `id: 1`) are also stripped,
+// since they can't match the positional and APISIX would still reject.
 func stripConflictingID(payload map[string]interface{}, positional string) map[string]interface{} {
 	if payload == nil {
 		return payload
 	}
-	bodyID, ok := payload["id"].(string)
-	if !ok {
+	bodyID, exists := payload["id"]
+	if !exists {
 		return payload
 	}
-	if bodyID == positional {
+	if idStr, ok := bodyID.(string); ok && idStr == positional {
 		return payload
 	}
 	delete(payload, "id")

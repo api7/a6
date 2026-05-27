@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -178,6 +179,37 @@ routes:
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported_section")
+}
+
+func TestConfigValidate_UnknownSectionsOrderedDeterministically(t *testing.T) {
+	// Go map iteration is non-deterministic; the validate output must sort
+	// the unknown section names so error messages are stable across runs.
+	ios, _, _, _ := iostreams.Test()
+
+	filePath := filepath.Join(t.TempDir(), "config.yaml")
+	err := os.WriteFile(filePath, []byte(`
+version: "1"
+zzz_unknown_z:
+  - id: x
+aaa_unknown_a:
+  - id: y
+mmm_unknown_m:
+  - id: z
+`), 0o644)
+	require.NoError(t, err)
+
+	c := NewCmdValidate(factoryWithIO(ios))
+	c.SetArgs([]string{"-f", filePath})
+	err = c.Execute()
+
+	require.Error(t, err)
+	msg := err.Error()
+	aaaIdx := strings.Index(msg, "aaa_unknown_a")
+	mmmIdx := strings.Index(msg, "mmm_unknown_m")
+	zzzIdx := strings.Index(msg, "zzz_unknown_z")
+	require.True(t, aaaIdx >= 0 && mmmIdx >= 0 && zzzIdx >= 0, "expected all three keys reported: %s", msg)
+	assert.True(t, aaaIdx < mmmIdx, "expected aaa before mmm in sorted order: %s", msg)
+	assert.True(t, mmmIdx < zzzIdx, "expected mmm before zzz in sorted order: %s", msg)
 }
 
 func TestConfigValidate_RejectsUnknownSectionJSON(t *testing.T) {

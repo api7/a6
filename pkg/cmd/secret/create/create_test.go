@@ -92,6 +92,16 @@ func TestStripConflictingID(t *testing.T) {
 
 	// Nil payload safe.
 	assert.Nil(t, stripConflictingID(nil, "vault/x"))
+
+	// Non-string id (e.g. YAML `id: 1` parsed as int) must also be stripped —
+	// APISIX rejects it with "wrong secret id" otherwise.
+	p = stripConflictingID(map[string]interface{}{
+		"id":    1,
+		"token": "t",
+	}, "vault/my-vault")
+	_, has = p["id"]
+	assert.False(t, has, "non-string body id should be stripped")
+	assert.Equal(t, "t", p["token"])
 }
 
 func TestSecretCreate_MissingFile(t *testing.T) {
