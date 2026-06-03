@@ -16,9 +16,9 @@ a6 version v1.2.3
 
 | Field | Source |
 |---|---|
-| `version` | Tagged release if built from a tag (e.g. `v0.1.0-rc1`); otherwise the short commit. `dev` when built without ldflags. |
-| `commit`  | Short Git commit the binary was built from. |
-| `built`   | UTC timestamp of the build. |
+| `version` | Release tag injected at build time (`make build`, GoReleaser), or the Go module version for binaries installed with `go install github.com/api7/a6/cmd/a6@<tag>`. `dev` only for untagged local source builds. |
+| `commit`  | Short Git commit the binary was built from (build-time injection, or VCS info embedded by `go build`). `unknown` when neither is available, e.g. `go install` module builds. |
+| `built`   | UTC timestamp of the build (same sources as `commit`). |
 | `go`      | Go toolchain used. |
 | `platform` | `<GOOS>/<GOARCH>` of the binary. |
 
