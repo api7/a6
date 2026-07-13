@@ -67,7 +67,7 @@ count=0
 for dir in "$SRC"/*/; do
   [ -f "${dir}SKILL.md" ] || continue
   name="$(basename "$dir")"
-  rm -rf "${SKILLS_DIR}/${name}"
+  rm -rf "${SKILLS_DIR:?}/${name}"
   cp -R "$dir" "${SKILLS_DIR}/${name}"
   count=$((count + 1))
 done
