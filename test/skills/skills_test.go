@@ -10,9 +10,6 @@ import (
 	"testing"
 )
 
-var shellFencePattern *regexp.Regexp = regexp.MustCompile("(?s)```(?:bash|sh|shell)\\s*\\n(.*?)```")
-var longFlagPattern *regexp.Regexp = regexp.MustCompile(`--[a-z][a-z0-9-]*`)
-
 func locateRepoRoot() (string, error) {
 	var dir string
 	var err error
@@ -49,6 +46,10 @@ func buildA6Binary(t *testing.T, root string) string {
 }
 
 func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
+	var shellFencePattern *regexp.Regexp = regexp.MustCompile("(?s)```(?:bash|sh|shell)\\s*\\n(.*?)```")
+	var longFlagPattern *regexp.Regexp = regexp.MustCompile(`--[a-z][a-z0-9-]*`)
+	var invocationPattern *regexp.Regexp = regexp.MustCompile(`(?:^|[^A-Za-z0-9_-])(a6(?:\s+[^|;&)]*)?)`)
+	var valueFlags map[string]bool = a6GlobalValueFlags()
 	var root string
 	var err error
 	root, err = locateRepoRoot()
@@ -70,13 +71,21 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 	var rootCommands map[string]bool = availableCommands(rootHelp)
-	var rootFlags map[string]bool = availableFlags(rootHelp)
+	var rootFlags map[string]bool = availableFlags(rootHelp, longFlagPattern)
 
 	var regressionPath []string
 	var regressionHelp string
-	regressionPath, regressionHelp, err = resolveCommand(binary, []string{"route", "creat"}, rootCommands)
+	regressionPath, regressionHelp, err = resolveCommand(binary, []string{"route", "creat"}, rootCommands, rootFlags, valueFlags)
 	if err == nil {
 		t.Fatalf("expected misspelled nested command to fail, got path %q and help %q", regressionPath, regressionHelp)
+	}
+	regressionPath, regressionHelp, err = resolveCommand(binary, []string{"route", "--server", "https://example.test", "creat"}, rootCommands, rootFlags, valueFlags)
+	if err == nil {
+		t.Fatalf("expected misspelled command after a global flag to fail, got path %q and help %q", regressionPath, regressionHelp)
+	}
+	var embedded []string = cliInvocations("CURRENT=$(a6 route get blue-green)", invocationPattern)
+	if len(embedded) != 1 || !strings.HasPrefix(embedded[0], "a6 route get") {
+		t.Fatalf("expected embedded a6 invocation, got %q", embedded)
 	}
 
 	var file string
@@ -92,22 +101,25 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 			var lines []string = joinedShellLines(block[1])
 			var line string
 			for _, line = range lines {
-				var fields []string = strings.Fields(line)
-				if len(fields) < 2 || fields[0] != "a6" {
-					continue
-				}
-				var path []string
-				var help string
-				path, help, err = resolveCommand(binary, commandFields(fields[1:]), rootCommands)
-				if err != nil {
-					t.Fatalf("%s: %v", file, err)
-				}
-				var validFlags map[string]bool = mergeFlagSets(rootFlags, availableFlags(help))
-				var flags []string = longFlagPattern.FindAllString(line, -1)
-				var flag string
-				for _, flag = range flags {
-					if flag != "--help" && !validFlags[flag] {
-						t.Fatalf("%s: command %q uses unsupported flag %q", file, "a6 "+strings.Join(path, " "), flag)
+				var invocation string
+				for _, invocation = range cliInvocations(line, invocationPattern) {
+					var fields []string = strings.Fields(invocation)
+					if len(fields) < 2 {
+						continue
+					}
+					var path []string
+					var help string
+					path, help, err = resolveCommand(binary, commandFields(fields[1:]), rootCommands, rootFlags, valueFlags)
+					if err != nil {
+						t.Fatalf("%s: %v", file, err)
+					}
+					var validFlags map[string]bool = mergeFlagSets(rootFlags, availableFlags(help, longFlagPattern))
+					var flags []string = longFlagPattern.FindAllString(invocation, -1)
+					var flag string
+					for _, flag = range flags {
+						if flag != "--help" && !validFlags[flag] {
+							t.Fatalf("%s: command %q uses unsupported flag %q", file, "a6 "+strings.Join(path, " "), flag)
+						}
 					}
 				}
 			}
@@ -116,21 +128,26 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 }
 
 func commandFields(fields []string) []string {
-	var valueFlags map[string]bool = map[string]bool{
+	var valueFlags map[string]bool = a6GlobalValueFlags()
+	for len(fields) > 0 && strings.HasPrefix(fields[0], "-") {
+		var flag string = strings.SplitN(fields[0], "=", 2)[0]
+		var hasInlineValue bool = strings.Contains(fields[0], "=")
+		fields = fields[1:]
+		if valueFlags[flag] && !hasInlineValue && len(fields) > 0 {
+			fields = fields[1:]
+		}
+	}
+	return fields
+}
+
+func a6GlobalValueFlags() map[string]bool {
+	return map[string]bool{
 		"--api-key": true,
 		"--context": true,
 		"--output":  true,
 		"--server":  true,
 		"-o":        true,
 	}
-	for len(fields) > 0 && strings.HasPrefix(fields[0], "-") {
-		var flag string = fields[0]
-		fields = fields[1:]
-		if valueFlags[flag] && len(fields) > 0 {
-			fields = fields[1:]
-		}
-	}
-	return fields
 }
 
 func commandHelp(binary string, path []string) (string, error) {
@@ -169,7 +186,7 @@ func availableCommands(help string) map[string]bool {
 	return commands
 }
 
-func availableFlags(help string) map[string]bool {
+func availableFlags(help string, longFlagPattern *regexp.Regexp) map[string]bool {
 	var flags map[string]bool = map[string]bool{}
 	var inFlags bool
 	var lines []string = strings.Split(help, "\n")
@@ -207,7 +224,7 @@ func mergeFlagSets(first map[string]bool, second map[string]bool) map[string]boo
 	return merged
 }
 
-func resolveCommand(binary string, fields []string, commands map[string]bool) ([]string, string, error) {
+func resolveCommand(binary string, fields []string, commands map[string]bool, rootFlags map[string]bool, valueFlags map[string]bool) ([]string, string, error) {
 	if len(fields) == 0 || !commands[fields[0]] {
 		return nil, "", fmt.Errorf("unsupported a6 command %q", strings.Join(fields, " "))
 	}
@@ -218,14 +235,29 @@ func resolveCommand(binary string, fields []string, commands map[string]bool) ([
 	if err != nil {
 		return nil, "", err
 	}
-	var field string
-	for _, field = range fields[1:] {
-		if strings.HasPrefix(field, "-") || strings.ContainsAny(field, "|<>") {
+	var index int = 1
+	for index < len(fields) {
+		var field string = fields[index]
+		if strings.ContainsAny(field, "|<>") {
 			break
 		}
 		var subcommands map[string]bool = availableCommands(help)
 		if len(subcommands) == 0 {
 			break
+		}
+		if strings.HasPrefix(field, "-") {
+			var flag string = strings.SplitN(field, "=", 2)[0]
+			if !rootFlags[flag] {
+				return path, help, fmt.Errorf("unsupported interspersed flag %q before a6 subcommand", flag)
+			}
+			index++
+			if valueFlags[flag] && !strings.Contains(field, "=") {
+				if index >= len(fields) {
+					return path, help, fmt.Errorf("flag %q requires a value", flag)
+				}
+				index++
+			}
+			continue
 		}
 		if !subcommands[field] {
 			return path, help, fmt.Errorf("unsupported nested command %q after %q", field, strings.Join(path, " "))
@@ -235,8 +267,21 @@ func resolveCommand(binary string, fields []string, commands map[string]bool) ([
 		if err != nil {
 			return nil, "", err
 		}
+		index++
 	}
 	return path, help, nil
+}
+
+func cliInvocations(line string, invocationPattern *regexp.Regexp) []string {
+	var invocations []string
+	var matches [][]string = invocationPattern.FindAllStringSubmatch(line, -1)
+	var match []string
+	for _, match = range matches {
+		if len(match) > 1 {
+			invocations = append(invocations, strings.TrimSpace(match[1]))
+		}
+	}
+	return invocations
 }
 
 func joinedShellLines(block string) []string {
