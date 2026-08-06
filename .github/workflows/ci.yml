@@ -57,3 +57,10 @@ jobs:
 
       - name: Validate SKILL.md files
         run: ./scripts/validate-skills.sh
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Test skill examples
+        run: make test-skills

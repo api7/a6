@@ -64,19 +64,18 @@ EOF
 
 ### 2. Add basic-auth credential
 
+Save the credential as `credential.yaml`, then create it:
+
+```yaml
+id: cred-alice-basic-auth
+plugins:
+  basic-auth:
+    username: alice
+    password: alice-password-123
+```
+
 ```bash
-curl "$(a6 context current -o json | jq -r .server)/apisix/admin/consumers/alice/credentials" \
-  -X PUT \
-  -H "X-API-KEY: $(a6 context current -o json | jq -r .api_key)" \
-  -d '{
-    "id": "cred-alice-basic-auth",
-    "plugins": {
-      "basic-auth": {
-        "username": "alice",
-        "password": "alice-password-123"
-      }
-    }
-  }'
+a6 credential create --consumer alice -f credential.yaml
 ```
 
 ### 3. Create a route with basic-auth enabled

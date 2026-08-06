@@ -4,7 +4,29 @@ This document describes the skill system for the a6 CLI. Skills are structured k
 
 ## Overview
 
-Skills are `SKILL.md` files stored in the `skills/` directory. Each skill provides domain-specific instructions, command patterns, and decision guidance for AI agents. The format is compatible with 39+ AI coding agents including Claude Code, OpenCode, Cursor, GitHub Copilot, and Windsurf.
+Skills are `SKILL.md` files stored in the `skills/` directory. Each skill provides domain-specific instructions, command patterns, and decision guidance for AI agents. The supported installation examples cover Claude Code, Codex, Cursor, and GitHub Copilot.
+
+Install the narrowest skill needed for the current task. Do not install the full
+collection by default: overlapping persona, recipe, and plugin guidance adds
+routing ambiguity and makes review and updates harder.
+
+## Install a Skill
+
+Preview the available skills, then copy one skill into the current project:
+
+```bash
+npx skills add api7/a6 --list
+npx skills add api7/a6 --skill a6-plugin-key-auth --agent codex --copy
+```
+
+Replace `codex` with `claude-code`, `cursor`, or `github-copilot`. Review the
+selected `SKILL.md` before use. Installation copies instructions only; it does
+not install `a6`, connect to APISIX, or run gateway commands.
+
+Use a non-production context for a first run. Ask the agent to inspect current
+resources, propose an exact change, wait for approval, apply only the approved
+change, verify the result, and retain a rollback path. Never put an Admin API
+key in a prompt or committed file.
 
 ## Directory Structure
 
@@ -108,18 +130,22 @@ The body follows the skill type:
 
 ## CI Validation
 
-Every PR that modifies `skills/` is validated by `scripts/validate-skills.sh`. The script checks:
+Every PR that modifies `skills/` runs metadata validation and CLI-example
+tests. The checks cover:
 
 1. Every `skills/*/SKILL.md` has valid YAML frontmatter
 2. Required fields `name` and `description` are present
 3. `name` matches the directory name
 4. `name` follows kebab-case pattern
 5. `description` is non-empty
+6. Commands used in shell examples exist in the current a6 CLI
+7. Long flags used in shell examples are supported by that command or globally
 
 Run locally:
 
 ```bash
 make validate-skills
+make test-skills
 ```
 
 ## Adding a New Skill
@@ -127,7 +153,7 @@ make validate-skills
 1. Choose the skill type and name following the [taxonomy](#skill-taxonomy)
 2. Create the directory: `mkdir skills/<skill-name>`
 3. Create `skills/<skill-name>/SKILL.md` with frontmatter and body
-4. Run validation: `make validate-skills`
+4. Run validation: `make validate-skills test-skills`
 5. Update this document if adding a new skill type or category
 
 ## Skill Roadmap

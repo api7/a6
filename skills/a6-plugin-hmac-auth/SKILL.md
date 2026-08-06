@@ -70,19 +70,18 @@ EOF
 
 ### 2. Add hmac-auth credential
 
+Save the credential as `credential.yaml`, then create it:
+
+```yaml
+id: cred-alice-hmac
+plugins:
+  hmac-auth:
+    key_id: alice-key
+    secret_key: alice-secret-key-value
+```
+
 ```bash
-curl "$(a6 context current -o json | jq -r .server)/apisix/admin/consumers/alice/credentials" \
-  -X PUT \
-  -H "X-API-KEY: $(a6 context current -o json | jq -r .api_key)" \
-  -d '{
-    "id": "cred-alice-hmac",
-    "plugins": {
-      "hmac-auth": {
-        "key_id": "alice-key",
-        "secret_key": "alice-secret-key-value"
-      }
-    }
-  }'
+a6 credential create --consumer alice -f credential.yaml
 ```
 
 ### 3. Create a route with hmac-auth enabled

@@ -91,21 +91,20 @@ EOF
 
 ### 2. Add jwt-auth credential
 
+Save the credential as `credential.yaml`, then create it:
+
+```yaml
+id: cred-alice-jwt
+plugins:
+  jwt-auth:
+    key: alice-key
+    secret: alice-secret-minimum-32-chars-long
+    algorithm: HS256
+    exp: 86400
+```
+
 ```bash
-curl "$(a6 context current -o json | jq -r .server)/apisix/admin/consumers/alice/credentials" \
-  -X PUT \
-  -H "X-API-KEY: $(a6 context current -o json | jq -r .api_key)" \
-  -d '{
-    "id": "cred-alice-jwt",
-    "plugins": {
-      "jwt-auth": {
-        "key": "alice-key",
-        "secret": "alice-secret-minimum-32-chars-long",
-        "algorithm": "HS256",
-        "exp": 86400
-      }
-    }
-  }'
+a6 credential create --consumer alice -f credential.yaml
 ```
 
 ### 3. Create a route with jwt-auth
@@ -150,22 +149,12 @@ openssl rsa -in private.pem -pubout -out public.pem
 ### 2. Create credential with public key
 
 ```bash
-curl "$(a6 context current -o json | jq -r .server)/apisix/admin/consumers/bob/credentials" \
-  -X PUT \
-  -H "X-API-KEY: $(a6 context current -o json | jq -r .api_key)" \
-  -d '{
-    "id": "cred-bob-jwt",
-    "plugins": {
-      "jwt-auth": {
-        "key": "bob-key",
-        "algorithm": "RS256",
-        "public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjAN...\n-----END PUBLIC KEY-----"
-      }
-    }
-  }'
+a6 credential create --consumer bob -f credential.yaml
 ```
 
-Sign tokens with `private.pem` externally. APISIX only needs the public key.
+In this case, `credential.yaml` contains the `jwt-auth` configuration and the
+public key. Sign tokens with `private.pem` externally; APISIX only needs the
+public key.
 
 ## Common Patterns
 

@@ -49,7 +49,7 @@ go install github.com/api7/a6/cmd/a6@latest
 a6 context create dev --server http://localhost:9180 --api-key edd1c9f034335f136f87ad84b625c8f1
 
 # Verify connection
-a6 health
+a6 route list --output table
 ```
 
 ### 2. Explore available plugins
@@ -287,9 +287,6 @@ upstreams:
 
 consumers:
   - username: dev
-    plugins:
-      key-auth:
-        key: dev-key
 
 routes:
   - id: api
@@ -303,13 +300,27 @@ EOF
 a6 config sync -f dev-config.yaml
 ```
 
+Create authentication data as a separate credential resource. Save the
+following as `dev-credential.yaml`:
+
+```yaml
+id: dev-key-auth
+plugins:
+  key-auth:
+    key: dev-key
+```
+
+```bash
+a6 credential create --consumer dev -f dev-credential.yaml
+```
+
 ## Debugging
 
 ### Trace a request
 
 ```bash
 # See how APISIX routes a specific request
-a6 debug trace --uri /api/users --method GET --header "apikey: dev-key"
+a6 debug trace --path /api/users --method GET --header "apikey: dev-key"
 ```
 
 ### Stream logs
@@ -319,7 +330,7 @@ a6 debug trace --uri /api/users --method GET --header "apikey: dev-key"
 a6 debug logs --follow
 
 # Filter by log level
-a6 debug logs --follow --level error
+a6 debug logs --follow --type error
 ```
 
 ### Inspect a route's full config
@@ -350,14 +361,10 @@ a6 route get my-api --output json | jq .
     a6 config sync -f apisix-config.yaml
 ```
 
-### Export for other tools
+### Export the current configuration
 
 ```bash
-# Export to Kubernetes-friendly format
-a6 export --format kubernetes > k8s-apisix.yaml
-
-# Export to standalone YAML
-a6 export --format standalone > apisix-standalone.yaml
+a6 config dump --output yaml > apisix-backup.yaml
 ```
 
 ## Decision Framework

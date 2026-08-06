@@ -21,7 +21,7 @@ metadata:
     - a6 config validate
     - a6 debug logs
     - a6 debug trace
-    - a6 health
+    - a6 route list
     - a6 ssl create
     - a6 global-rule create
 ---
@@ -66,7 +66,7 @@ Always verify the active context before running destructive operations.
 
 ```bash
 # Verify APISIX is reachable and get version
-a6 health
+a6 route list --output table
 
 # Check all upstream health status
 a6 upstream list --output json | jq '.[] | {id: .id, name: .name}'
@@ -117,14 +117,14 @@ a6 config diff -f new-config.yaml
 a6 --context staging config sync -f new-config.yaml
 
 # 4. Verify staging
-a6 --context staging health
+a6 --context staging route list --output table
 a6 --context staging route list
 
 # 5. Apply to production
 a6 --context prod config sync -f new-config.yaml
 
 # 6. Verify production
-a6 --context prod health
+a6 --context prod route list --output table
 ```
 
 ### Rollback
@@ -147,7 +147,7 @@ a6 route list
 a6 route get <route-id> --output json
 
 # 2. Trace the request path
-a6 debug trace --uri /api/v1/users --method GET
+a6 debug trace --path /api/v1/users --method GET
 
 # 3. Stream error logs in real-time
 a6 debug logs --follow
@@ -163,10 +163,10 @@ a6 upstream health <upstream-id>
 a6 upstream get <upstream-id> --output json
 
 # Verify backend is reachable from APISIX
-a6 debug trace --uri /failing-endpoint
+a6 debug trace --path /failing-endpoint
 
 # Check error logs for connection refused / timeout
-a6 debug logs --follow --level error
+a6 debug logs --follow --type error
 ```
 
 ### Authentication failures (401/403)

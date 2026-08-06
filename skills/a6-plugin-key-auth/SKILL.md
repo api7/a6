@@ -71,20 +71,17 @@ EOF
 
 ### 2. Add key-auth credential to the consumer
 
-Use the Admin API (credentials are sub-resources of consumers):
+Save the credential as `credential.yaml`:
+
+```yaml
+id: cred-alice-key-auth
+plugins:
+  key-auth:
+    key: alice-secret-key-001
+```
 
 ```bash
-curl "$(a6 context current -o json | jq -r .server)/apisix/admin/consumers/alice/credentials" \
-  -X PUT \
-  -H "X-API-KEY: $(a6 context current -o json | jq -r .api_key)" \
-  -d '{
-    "id": "cred-alice-key-auth",
-    "plugins": {
-      "key-auth": {
-        "key": "alice-secret-key-001"
-      }
-    }
-  }'
+a6 credential create --consumer alice -f credential.yaml
 ```
 
 ### 3. Create a route with key-auth enabled

@@ -267,14 +267,8 @@ consumer_groups:
 consumers:
   - username: acme-corp
     group_id: tenant-pro
-    plugins:
-      key-auth:
-        key: acme-secret-key
   - username: startup-xyz
     group_id: tenant-free
-    plugins:
-      key-auth:
-        key: startup-xyz-key
 
 routes:
   - id: api-v1
@@ -298,6 +292,20 @@ a6 config diff -f apisix-tenants.yaml
 
 # Apply
 a6 config sync -f apisix-tenants.yaml
+```
+
+Create each tenant's `key-auth` data as a credential after the consumers
+exist. For example, save the following as `acme-credential.yaml`:
+
+```yaml
+id: acme-key-auth
+plugins:
+  key-auth:
+    key: acme-secret-key
+```
+
+```bash
+a6 credential create --consumer acme-corp -f acme-credential.yaml
 ```
 
 ## Gotchas
