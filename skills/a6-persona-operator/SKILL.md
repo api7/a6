@@ -146,9 +146,9 @@ a6 route list
 a6 route get <route-id> --output json
 
 # 2. Trace the request path
-a6 debug trace --path /api/v1/users --method GET
+a6 debug trace <route-id> --path /api/v1/users --method GET
 
-# 3. Stream error logs in real-time
+# 3. Stream APISIX container logs in real-time
 a6 debug logs --follow
 
 # 4. Check upstream health
@@ -162,10 +162,10 @@ a6 upstream health <upstream-id>
 a6 upstream get <upstream-id> --output json
 
 # Verify backend is reachable from APISIX
-a6 debug trace --path /failing-endpoint
+a6 debug trace <route-id> --path /failing-endpoint
 
-# Check error logs for connection refused / timeout
-a6 debug logs --follow --type error
+# Check container logs for connection refused / timeout
+a6 debug logs --follow
 ```
 
 ### Authentication failures (401/403)

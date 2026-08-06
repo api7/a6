@@ -320,17 +320,14 @@ a6 credential create --consumer dev -f dev-credential.yaml
 
 ```bash
 # See how APISIX routes a specific request
-a6 debug trace --path /api/users --method GET --header "apikey: dev-key"
+a6 debug trace api --path /api/users --method GET --header "apikey: dev-key"
 ```
 
 ### Stream logs
 
 ```bash
-# Watch APISIX error logs in real-time
+# Watch APISIX container logs in real-time
 a6 debug logs --follow
-
-# Filter by log level
-a6 debug logs --follow --type error
 ```
 
 ### Inspect a route's full config
@@ -376,7 +373,7 @@ a6 config dump --output yaml > apisix-backup.yaml
 | Multiple routes, same config | Create a Service → reference via `service_id` |
 | Need rate limiting | Choose `limit-count` (fixed) or `limit-req` (smooth) → add to route |
 | Backend URL changed | `a6 upstream update <id>` with new nodes |
-| Debug 502 errors | `a6 debug trace` → `a6 upstream health` → check backend |
+| Debug 502 errors | `a6 debug trace <route-id>` → `a6 upstream health` → check backend |
 | Prepare for production | `a6 config dump` → commit to git → `a6 config validate` in CI |
 | Test a new plugin | `a6 plugin get <name>` for schema → add to a test route → verify |
 
