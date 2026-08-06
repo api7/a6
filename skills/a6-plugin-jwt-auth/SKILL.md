@@ -146,15 +146,38 @@ openssl genrsa -out private.pem 2048
 openssl rsa -in private.pem -pubout -out public.pem
 ```
 
-### 2. Create credential with public key
+### 2. Create a consumer
 
 ```bash
-a6 credential create --consumer bob -f credential.yaml
+a6 consumer create -f - <<'EOF'
+{
+  "username": "bob"
+}
+EOF
 ```
 
-In this case, `credential.yaml` contains the `jwt-auth` configuration and the
-public key. Sign tokens with `private.pem` externally; APISIX only needs the
-public key.
+### 3. Create a credential with the public key
+
+Save the following as `bob-rs256-credential.yaml`, replacing the placeholder
+with the contents of `public.pem`:
+
+```yaml
+id: cred-bob-jwt
+plugins:
+  jwt-auth:
+    key: bob-key
+    algorithm: RS256
+    public_key: |
+      -----BEGIN PUBLIC KEY-----
+      replace-with-the-base64-body-from-public.pem
+      -----END PUBLIC KEY-----
+```
+
+```bash
+a6 credential create --consumer bob -f bob-rs256-credential.yaml
+```
+
+Sign tokens with `private.pem` externally; APISIX only needs the public key.
 
 ## Common Patterns
 

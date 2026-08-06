@@ -308,6 +308,19 @@ plugins:
 a6 credential create --consumer acme-corp -f acme-credential.yaml
 ```
 
+Save the free-tier credential as `startup-credential.yaml`:
+
+```yaml
+id: startup-key-auth
+plugins:
+  key-auth:
+    key: startup-xyz-key
+```
+
+```bash
+a6 credential create --consumer startup-xyz -f startup-credential.yaml
+```
+
 ## Gotchas
 
 - **Consumer group plugins merge** — plugins set on the consumer group are merged

@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install help test-e2e docker-up docker-down validate-skills test-skills
+.PHONY: build test lint clean install help test-e2e docker-up docker-down validate-skills test-skills check
 
 # Build variables
 BINARY_NAME := a6

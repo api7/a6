@@ -118,7 +118,6 @@ a6 --context staging config sync -f new-config.yaml
 
 # 4. Verify staging
 a6 --context staging route list --output table
-a6 --context staging route list
 
 # 5. Apply to production
 a6 --context prod config sync -f new-config.yaml
