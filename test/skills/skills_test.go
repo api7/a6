@@ -47,6 +47,7 @@ func buildA6Binary(t *testing.T, root string) string {
 
 func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 	var shellFencePattern *regexp.Regexp = regexp.MustCompile("(?s)```(?:bash|sh|shell)\\s*\\n(.*?)```")
+	var yamlFencePattern *regexp.Regexp = regexp.MustCompile("(?s)```(?:yaml|yml)\\s*\\n(.*?)```")
 	var longFlagPattern *regexp.Regexp = regexp.MustCompile(`--[a-z][a-z0-9-]*`)
 	var invocationPattern *regexp.Regexp = regexp.MustCompile(`(?:^|[^A-Za-z0-9_-])(a6(?:\s+[^|;&)]*)?)`)
 	var valueFlags map[string]bool = a6GlobalValueFlags()
@@ -87,6 +88,10 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 	if len(embedded) != 1 || !strings.HasPrefix(embedded[0], "a6 route get") {
 		t.Fatalf("expected embedded a6 invocation, got %q", embedded)
 	}
+	var yamlBlocks []string = skillShellBlocks("```yaml\n- name: Validate\n  run: |\n    a6 route list\n    a6 config validate -f config.yaml\n```", shellFencePattern, yamlFencePattern)
+	if len(yamlBlocks) != 1 || !strings.Contains(yamlBlocks[0], "a6 config validate") {
+		t.Fatalf("expected workflow run block, got %q", yamlBlocks)
+	}
 
 	var file string
 	for _, file = range matches {
@@ -95,10 +100,10 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var blocks [][]string = shellFencePattern.FindAllStringSubmatch(string(data), -1)
-		var block []string
+		var blocks []string = skillShellBlocks(string(data), shellFencePattern, yamlFencePattern)
+		var block string
 		for _, block = range blocks {
-			var lines []string = joinedShellLines(block[1])
+			var lines []string = joinedShellLines(block)
 			var line string
 			for _, line = range lines {
 				var invocation string
@@ -125,6 +130,58 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 			}
 		}
 	}
+}
+
+func skillShellBlocks(data string, shellFencePattern *regexp.Regexp, yamlFencePattern *regexp.Regexp) []string {
+	var blocks []string
+	var match []string
+	for _, match = range shellFencePattern.FindAllStringSubmatch(data, -1) {
+		blocks = append(blocks, match[1])
+	}
+	for _, match = range yamlFencePattern.FindAllStringSubmatch(data, -1) {
+		blocks = append(blocks, yamlRunBlocks(match[1])...)
+	}
+	return blocks
+}
+
+func yamlRunBlocks(block string) []string {
+	var runBlocks []string
+	var lines []string = strings.Split(block, "\n")
+	var index int
+	for index = 0; index < len(lines); index++ {
+		var line string = lines[index]
+		var trimmed string = strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "run:") {
+			continue
+		}
+		var value string = strings.TrimSpace(strings.TrimPrefix(trimmed, "run:"))
+		if value == "" {
+			continue
+		}
+		if value[0] != '|' && value[0] != '>' {
+			runBlocks = append(runBlocks, value)
+			continue
+		}
+
+		var runIndent int = len(line) - len(strings.TrimLeft(line, " \t"))
+		var body []string
+		var next int
+		for next = index + 1; next < len(lines); next++ {
+			var bodyLine string = lines[next]
+			if strings.TrimSpace(bodyLine) == "" {
+				body = append(body, bodyLine)
+				continue
+			}
+			var bodyIndent int = len(bodyLine) - len(strings.TrimLeft(bodyLine, " \t"))
+			if bodyIndent <= runIndent {
+				break
+			}
+			body = append(body, bodyLine)
+		}
+		runBlocks = append(runBlocks, strings.Join(body, "\n"))
+		index = next - 1
+	}
+	return runBlocks
 }
 
 func commandFields(fields []string) []string {
