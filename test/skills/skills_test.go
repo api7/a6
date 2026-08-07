@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func locateRepoRoot() (string, error) {
@@ -72,7 +74,7 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 	var rootCommands map[string]bool = availableCommands(rootHelp)
-	var rootFlags map[string]bool = availableFlags(rootHelp, longFlagPattern)
+	var rootFlags map[string]bool = mergeFlagSets(availableFlags(rootHelp, longFlagPattern), availableShortFlags(rootHelp))
 
 	var regressionPath []string
 	var regressionHelp string
@@ -84,12 +86,21 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected misspelled command after a global flag to fail, got path %q and help %q", regressionPath, regressionHelp)
 	}
+	regressionPath, _, err = resolveCommand(binary, []string{"route", "-o", "yaml", "get", "example"}, rootCommands, rootFlags, valueFlags)
+	if err != nil || strings.Join(regressionPath, " ") != "route get" {
+		t.Fatalf("expected supported short root flag before subcommand, got path %q and error %v", regressionPath, err)
+	}
 	var embedded []string = cliInvocations("CURRENT=$(a6 route get blue-green)", invocationPattern)
 	if len(embedded) != 1 || !strings.HasPrefix(embedded[0], "a6 route get") {
 		t.Fatalf("expected embedded a6 invocation, got %q", embedded)
 	}
-	var yamlBlocks []string = skillShellBlocks("```yaml\n- name: Validate\n  run: |\n    a6 route list\n    a6 config validate -f config.yaml\n```", shellFencePattern, yamlFencePattern)
-	if len(yamlBlocks) != 1 || !strings.Contains(yamlBlocks[0], "a6 config validate") {
+	var yamlBlocks []string
+	yamlBlocks, err = skillShellBlocks("```yaml\n- name: Validate\n  run: >\n    a6 route list\n    --unsupported\n```", shellFencePattern, yamlFencePattern)
+	if err != nil {
+		t.Fatalf("failed to extract workflow run block: %v", err)
+	}
+	var yamlCommands []string = joinedShellLines(yamlBlocks[0])
+	if len(yamlCommands) != 1 || yamlCommands[0] != "a6 route list --unsupported" {
 		t.Fatalf("expected workflow run block, got %q", yamlBlocks)
 	}
 
@@ -100,7 +111,11 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var blocks []string = skillShellBlocks(string(data), shellFencePattern, yamlFencePattern)
+		var blocks []string
+		blocks, err = skillShellBlocks(string(data), shellFencePattern, yamlFencePattern)
+		if err != nil {
+			t.Fatalf("%s: failed to parse fenced YAML: %v", file, err)
+		}
 		var block string
 		for _, block = range blocks {
 			var lines []string = joinedShellLines(block)
@@ -132,56 +147,52 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 	}
 }
 
-func skillShellBlocks(data string, shellFencePattern *regexp.Regexp, yamlFencePattern *regexp.Regexp) []string {
+func skillShellBlocks(data string, shellFencePattern *regexp.Regexp, yamlFencePattern *regexp.Regexp) ([]string, error) {
 	var blocks []string
 	var match []string
 	for _, match = range shellFencePattern.FindAllStringSubmatch(data, -1) {
 		blocks = append(blocks, match[1])
 	}
 	for _, match = range yamlFencePattern.FindAllStringSubmatch(data, -1) {
-		blocks = append(blocks, yamlRunBlocks(match[1])...)
+		var runBlocks []string
+		var err error
+		runBlocks, err = yamlRunBlocks(match[1])
+		if err != nil {
+			return nil, err
+		}
+		blocks = append(blocks, runBlocks...)
 	}
-	return blocks
+	return blocks, nil
 }
 
-func yamlRunBlocks(block string) []string {
-	var runBlocks []string
-	var lines []string = strings.Split(block, "\n")
-	var index int
-	for index = 0; index < len(lines); index++ {
-		var line string = lines[index]
-		var trimmed string = strings.TrimSpace(line)
-		if !strings.HasPrefix(trimmed, "run:") {
-			continue
-		}
-		var value string = strings.TrimSpace(strings.TrimPrefix(trimmed, "run:"))
-		if value == "" {
-			continue
-		}
-		if value[0] != '|' && value[0] != '>' {
-			runBlocks = append(runBlocks, value)
-			continue
-		}
-
-		var runIndent int = len(line) - len(strings.TrimLeft(line, " \t"))
-		var body []string
-		var next int
-		for next = index + 1; next < len(lines); next++ {
-			var bodyLine string = lines[next]
-			if strings.TrimSpace(bodyLine) == "" {
-				body = append(body, bodyLine)
-				continue
-			}
-			var bodyIndent int = len(bodyLine) - len(strings.TrimLeft(bodyLine, " \t"))
-			if bodyIndent <= runIndent {
-				break
-			}
-			body = append(body, bodyLine)
-		}
-		runBlocks = append(runBlocks, strings.Join(body, "\n"))
-		index = next - 1
+func yamlRunBlocks(block string) ([]string, error) {
+	var root yaml.Node
+	var err error = yaml.Unmarshal([]byte(block), &root)
+	if err != nil {
+		return nil, err
 	}
-	return runBlocks
+	var runBlocks []string
+	collectYAMLRunBlocks(&root, &runBlocks)
+	return runBlocks, nil
+}
+
+func collectYAMLRunBlocks(node *yaml.Node, runBlocks *[]string) {
+	if node.Kind == yaml.MappingNode {
+		var index int
+		for index = 0; index+1 < len(node.Content); index += 2 {
+			var key *yaml.Node = node.Content[index]
+			var value *yaml.Node = node.Content[index+1]
+			if key.Value == "run" && value.Kind == yaml.ScalarNode {
+				*runBlocks = append(*runBlocks, value.Value)
+			}
+			collectYAMLRunBlocks(value, runBlocks)
+		}
+		return
+	}
+	var child *yaml.Node
+	for _, child = range node.Content {
+		collectYAMLRunBlocks(child, runBlocks)
+	}
 }
 
 func commandFields(fields []string) []string {
@@ -264,6 +275,32 @@ func availableFlags(help string, longFlagPattern *regexp.Regexp) map[string]bool
 		var flag string = longFlagPattern.FindString(line)
 		if flag != "" {
 			flags[flag] = true
+		}
+	}
+	return flags
+}
+
+func availableShortFlags(help string) map[string]bool {
+	var flags map[string]bool = map[string]bool{}
+	var shortFlagPattern *regexp.Regexp = regexp.MustCompile(`(?:^|\s)(-[A-Za-z])(?:,|\s|$)`)
+	var inFlags bool
+	var line string
+	for _, line = range strings.Split(help, "\n") {
+		var heading string = strings.TrimSpace(line)
+		if heading == "Flags:" || heading == "Global Flags:" {
+			inFlags = true
+			continue
+		}
+		if heading == "" {
+			inFlags = false
+			continue
+		}
+		if !inFlags {
+			continue
+		}
+		var match []string = shortFlagPattern.FindStringSubmatch(line)
+		if len(match) > 1 {
+			flags[match[1]] = true
 		}
 	}
 	return flags
