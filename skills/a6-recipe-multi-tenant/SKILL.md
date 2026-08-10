@@ -14,9 +14,13 @@ metadata:
   a6_commands:
     - a6 consumer create
     - a6 consumer-group create
+    - a6 consumer-group list
+    - a6 consumer get
     - a6 credential create
     - a6 route create
     - a6 route update
+    - a6 upstream create
+    - a6 config diff
     - a6 config sync
     - a6 config dump
 ---
