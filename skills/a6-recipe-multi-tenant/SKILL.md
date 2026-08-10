@@ -10,10 +10,11 @@ author: Apache APISIX Contributors
 license: Apache-2.0
 metadata:
   category: recipe
-  apisix_version: ">=3.0.0"
+  apisix_version: ">=3.11.0"
   a6_commands:
     - a6 consumer create
     - a6 consumer-group create
+    - a6 credential create
     - a6 route create
     - a6 route update
     - a6 config sync
@@ -242,7 +243,7 @@ Backend receives `X-Consumer-Name: acme-corp` and `X-Consumer-Group: tenant-pro`
 
 ## Declarative Multi-Tenant Config
 
-Manage all tenants declaratively with `a6 config sync`:
+Manage tenant groups, consumers, and routes declaratively with `a6 config sync`:
 
 ```yaml
 # apisix-tenants.yaml
@@ -323,6 +324,9 @@ a6 credential create --consumer startup-xyz -f startup-credential.yaml
 
 ## Gotchas
 
+- **Credentials are separate resources** — `a6 config sync` and `a6 config dump`
+  do not manage Consumer Credential subresources. Store credential files securely
+  and apply or restore them separately with `a6 credential` commands.
 - **Consumer group plugins merge** — plugins set on the consumer group are merged
   with plugins on the individual consumer. The consumer's plugin config takes
   precedence if both define the same plugin.

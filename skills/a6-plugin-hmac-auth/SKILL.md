@@ -10,13 +10,14 @@ author: Apache APISIX Contributors
 license: Apache-2.0
 metadata:
   category: plugin
-  apisix_version: ">=3.0.0"
+  apisix_version: ">=3.11.0"
   plugin_name: hmac-auth
   a6_commands:
     - a6 route create
     - a6 route update
     - a6 consumer create
     - a6 consumer update
+    - a6 credential create
 ---
 
 # a6-plugin-hmac-auth

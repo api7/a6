@@ -10,7 +10,7 @@ author: Apache APISIX Contributors
 license: Apache-2.0
 metadata:
   category: persona
-  apisix_version: ">=3.0.0"
+  apisix_version: ">=3.11.0"
   a6_commands:
     - a6 route create
     - a6 route update
@@ -18,6 +18,7 @@ metadata:
     - a6 upstream create
     - a6 service create
     - a6 consumer create
+    - a6 credential create
     - a6 plugin list
     - a6 plugin get
     - a6 config sync
@@ -359,6 +360,9 @@ a6 route get my-api --output json | jq .
 ```
 
 ### Export the current configuration
+
+`a6 config dump` does not export Consumer Credential subresources. Keep the
+credential files in your secure deployment workflow and restore them separately.
 
 ```bash
 a6 config dump --output yaml > apisix-backup.yaml

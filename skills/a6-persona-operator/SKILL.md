@@ -65,7 +65,7 @@ Always verify the active context before running destructive operations.
 ### 1. Health check
 
 ```bash
-# Verify APISIX is reachable and get version
+# Verify that the APISIX Admin API is reachable
 a6 route list --output table
 
 # Check all upstream health status

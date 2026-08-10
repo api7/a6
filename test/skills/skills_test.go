@@ -51,7 +51,7 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 	var shellFencePattern *regexp.Regexp = regexp.MustCompile("(?s)```(?:bash|sh|shell)\\s*\\n(.*?)```")
 	var yamlFencePattern *regexp.Regexp = regexp.MustCompile("(?s)```(?:yaml|yml)\\s*\\n(.*?)```")
 	var longFlagPattern *regexp.Regexp = regexp.MustCompile(`--[a-z][a-z0-9-]*`)
-	var invocationPattern *regexp.Regexp = regexp.MustCompile(`(?:^|[^A-Za-z0-9_-])(a6(?:\s+[^|;&)]*)?)`)
+	var invocationPattern *regexp.Regexp = regexp.MustCompile(`(?:^|[^A-Za-z0-9_-])(a6)(?:\s|$)`)
 	var valueFlags map[string]bool = a6GlobalValueFlags()
 	var root string
 	var err error
@@ -93,6 +93,10 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 	var embedded []string = cliInvocations("CURRENT=$(a6 route get blue-green)", invocationPattern)
 	if len(embedded) != 1 || !strings.HasPrefix(embedded[0], "a6 route get") {
 		t.Fatalf("expected embedded a6 invocation, got %q", embedded)
+	}
+	var quoted []string = cliInvocations(`a6 debug trace id --header "X-Test: a|b;c&d)" --bogus`, invocationPattern)
+	if len(quoted) != 1 || !strings.Contains(quoted[0], "--bogus") {
+		t.Fatalf("expected quoted separators to preserve the complete invocation, got %q", quoted)
 	}
 	var yamlBlocks []string
 	yamlBlocks, err = skillShellBlocks("```yaml\n- name: Validate\n  run: >\n    a6 route list\n    --unsupported\n```", shellFencePattern, yamlFencePattern)
@@ -368,14 +372,81 @@ func resolveCommand(binary string, fields []string, commands map[string]bool, ro
 
 func cliInvocations(line string, invocationPattern *regexp.Regexp) []string {
 	var invocations []string
-	var matches [][]string = invocationPattern.FindAllStringSubmatch(line, -1)
-	var match []string
+	var matches [][]int = invocationPattern.FindAllStringSubmatchIndex(line, -1)
+	var match []int
 	for _, match = range matches {
-		if len(match) > 1 {
-			invocations = append(invocations, strings.TrimSpace(match[1]))
+		if len(match) >= 4 {
+			var start int = match[2]
+			var end int = shellInvocationEnd(line, match[3])
+			invocations = append(invocations, strings.TrimSpace(line[start:end]))
 		}
 	}
 	return invocations
+}
+
+func shellInvocationEnd(line string, start int) int {
+	var quote byte
+	var escaped bool
+	var substitutionDepth int
+	var index int
+	for index = start; index < len(line); index++ {
+		var current byte = line[index]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if quote != '\'' && current == '\\' {
+			escaped = true
+			continue
+		}
+		if quote == '\'' {
+			if current == '\'' {
+				quote = 0
+			}
+			continue
+		}
+		if quote == '"' {
+			if current == '"' {
+				quote = 0
+				continue
+			}
+			if current == '$' && index+1 < len(line) && line[index+1] == '(' {
+				substitutionDepth++
+				index++
+				continue
+			}
+			if current == ')' && substitutionDepth > 0 {
+				substitutionDepth--
+			}
+			continue
+		}
+		if quote == '`' {
+			if current == '`' {
+				quote = 0
+			}
+			continue
+		}
+
+		switch current {
+		case '\'', '"', '`':
+			quote = current
+		case '$':
+			if index+1 < len(line) && line[index+1] == '(' {
+				substitutionDepth++
+				index++
+			}
+		case ')':
+			if substitutionDepth == 0 {
+				return index
+			}
+			substitutionDepth--
+		case '|', ';', '&':
+			if substitutionDepth == 0 {
+				return index
+			}
+		}
+	}
+	return len(line)
 }
 
 func joinedShellLines(block string) []string {
