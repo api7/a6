@@ -1,10 +1,10 @@
 ---
 name: a6-recipe-multi-tenant
 description: >-
-  Recipe skill for implementing multi-tenant API gateway patterns using the a6
-  CLI. Covers tenant isolation via Consumer Groups, host/path/header-based
-  routing, per-tenant rate limiting, context forwarding with proxy-rewrite,
-  and declarative config sync workflows for multi-tenant management.
+  Recipe skill for implementing tenant-aware policies on a shared APISIX
+  gateway using the a6 CLI. Covers shared policies through Consumer Groups,
+  host/path/header-based routing, per-consumer rate limiting, context forwarding
+  with proxy-rewrite, and declarative configuration workflows.
 version: "1.0.0"
 author: Apache APISIX Contributors
 license: Apache-2.0
@@ -25,36 +25,42 @@ metadata:
     - a6 config dump
 ---
 
-# a6-recipe-multi-tenant
+# Build Tenant-Aware Policies on a Shared Gateway
 
 ## Overview
 
-Multi-tenancy in an API gateway means serving multiple isolated tenants (customers,
-teams, or business units) through the same gateway instance, each with their own
-rate limits, authentication, and routing rules.
+APISIX does not provide a Tenant resource or a built-in tenant isolation model.
+This recipe combines APISIX capabilities to serve customers, teams, or business
+units through one shared gateway with different authentication, routing, and
+traffic policies.
 
-APISIX achieves multi-tenancy through:
-1. **Consumer Groups** — group consumers into tenants with shared plugin configs
+These patterns separate request handling and policy behavior. They do not
+isolate Admin API access, configuration storage, or gateway runtime resources.
+Use separate APISIX deployments when stronger administrative or runtime
+isolation is required.
+
+This recipe composes:
+1. **Consumer Groups** — apply shared plugin configurations to related consumers
 2. **Host/path/header-based routing** — route requests to tenant-specific upstreams
-3. **Per-tenant rate limiting** — enforce quotas per consumer group
+3. **Per-consumer rate limiting** — enforce different quotas within policy groups
 4. **Proxy-rewrite** — forward tenant context to backends via headers
 
 ## When to Use
 
 - Multiple customers sharing a single API gateway
-- Internal platform serving different teams with isolated quotas
-- SaaS application requiring per-tenant rate limits and auth
+- Internal platform serving different teams with separate policy and quota settings
+- SaaS application requiring tenant-aware routing and authentication
 - Need to forward tenant identity to backend services
 
-## Approach A: Consumer Groups for Tenant Isolation
+## Approach A: Consumer Groups for Shared Tenant Policies
 
-Group consumers by tenant. Each tenant gets shared plugin configuration
-(rate limits, transformations) applied via the consumer group.
+Group consumers by tenant or service tier. Each group supplies shared plugin
+configuration, such as rate limits and transformations, to its consumers.
 
-### 1. Create consumer groups (one per tenant)
+### 1. Create consumer groups for tenant policy sets
 
 ```bash
-# Free tier — 100 requests/day
+# Free tier — 100 requests/day per consumer
 a6 consumer-group create -f - <<'EOF'
 {
   "id": "tenant-free",
@@ -72,7 +78,7 @@ a6 consumer-group create -f - <<'EOF'
 }
 EOF
 
-# Pro tier — 10000 requests/day
+# Pro tier — 10000 requests/day per consumer
 a6 consumer-group create -f - <<'EOF'
 {
   "id": "tenant-pro",
@@ -245,7 +251,7 @@ EOF
 
 Backend receives `X-Consumer-Name: acme-corp` and `X-Consumer-Group: tenant-pro`.
 
-## Declarative Multi-Tenant Config
+## Declarative Tenant-Aware Configuration
 
 Manage tenant groups, consumers, and routes declaratively with `a6 config sync`:
 
@@ -328,6 +334,9 @@ a6 credential create --consumer startup-xyz -f startup-credential.yaml
 
 ## Gotchas
 
+- **Consumer Groups are not isolation boundaries** — they reuse plugin
+  configurations across consumers. All groups still share the same APISIX
+  administrative surface, configuration storage, and gateway runtime.
 - **Credentials are separate resources** — `a6 config sync` and `a6 config dump`
   do not manage Consumer Credential subresources. Store credential files securely
   and apply or restore them separately with `a6 credential` commands.
