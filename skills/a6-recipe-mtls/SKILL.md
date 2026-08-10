@@ -235,14 +235,18 @@ EOF
 
 ### Using APISIX Secret for certificate management
 
-Store certificates in external secret managers (Vault, AWS, etc.):
+Configure APISIX to read certificate material from a supported external secret
+manager. This example registers a Vault KV v1 manager; store the certificate
+values separately in Vault and reference them from the SSL resource with
+`$secret://vault/mtls-certs/<secret-name>/<key>`.
 
 ```bash
-# Create a secret reference
-a6 secret create -f - <<'EOF'
+# Configure a Vault secret manager
+a6 secret create vault/mtls-certs -f - <<'EOF'
 {
-  "id": "vault/mtls-certs",
-  "uri": "https://vault.example.com/v1/secret/data/mtls"
+  "uri": "https://vault.example.com",
+  "prefix": "apisix",
+  "token": "<VAULT_TOKEN>"
 }
 EOF
 ```

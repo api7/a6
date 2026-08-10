@@ -2,14 +2,23 @@ package skills
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+	"unicode"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
+
+	"github.com/api7/a6/internal/config"
+	cmd "github.com/api7/a6/pkg/cmd"
+	rootcmd "github.com/api7/a6/pkg/cmd/root"
+	"github.com/api7/a6/pkg/iostreams"
 )
 
 func locateRepoRoot() (string, error) {
@@ -48,130 +57,113 @@ func buildA6Binary(t *testing.T, root string) string {
 }
 
 func TestSkillCommandsUseSupportedA6CommandsAndFlags(t *testing.T) {
-	var shellFencePattern *regexp.Regexp = regexp.MustCompile("(?s)```(?:bash|sh|shell)\\s*\\n(.*?)```")
-	var yamlFencePattern *regexp.Regexp = regexp.MustCompile("(?s)```(?:yaml|yml)\\s*\\n(.*?)```")
-	var longFlagPattern *regexp.Regexp = regexp.MustCompile(`--[A-Za-z][A-Za-z0-9-]*`)
-	var invocationPattern *regexp.Regexp = regexp.MustCompile(`(?:^|[^A-Za-z0-9_-])(a6)(?:\s|$)`)
-	var valueFlags map[string]bool = a6GlobalValueFlags()
-	var root string
-	var err error
-	root, err = locateRepoRoot()
+	shellFencePattern := regexp.MustCompile("(?s)```(?:bash|sh|shell)\\s*\\n(.*?)```")
+	yamlFencePattern := regexp.MustCompile("(?s)```(?:yaml|yml)\\s*\\n(.*?)```")
+	invocationPattern := regexp.MustCompile(`(?:^|[^A-Za-z0-9_-])(a6)(?:\s|$)`)
+	workflowExpressionPattern := regexp.MustCompile(`\$\{\{.*?\}\}`)
+	root, err := locateRepoRoot()
 	if err != nil {
 		t.Fatalf("failed to locate repository root: %v", err)
 	}
-	var binary string = buildA6Binary(t, root)
-	var matches []string
-	matches, err = filepath.Glob(filepath.Join(root, "skills", "*", "SKILL.md"))
+	binary := buildA6Binary(t, root)
+	commandTree := newA6CommandTree(t)
+	rootFlags, valueFlags := rootFlagSets(commandTree)
+	matches, err := filepath.Glob(filepath.Join(root, "skills", "*", "SKILL.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(matches) == 0 {
 		t.Fatal("expected at least one skill file")
 	}
-	var rootHelp string
-	rootHelp, err = commandHelp(binary, nil)
+	rootHelp, err := commandHelp(binary, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var rootCommands map[string]bool = availableCommands(rootHelp)
-	var rootFlags map[string]bool = mergeFlagSets(availableFlags(rootHelp, longFlagPattern), availableShortFlags(rootHelp))
-
-	var regressionPath []string
-	var regressionHelp string
-	regressionPath, regressionHelp, err = resolveCommand(binary, []string{"route", "creat"}, rootCommands, rootFlags, valueFlags)
-	if err == nil {
-		t.Fatalf("expected misspelled nested command to fail, got path %q and help %q", regressionPath, regressionHelp)
+	rootCommands := availableCommands(rootHelp)
+	regressions := []string{
+		"a6 route creat",
+		"a6 route --server https://example.test creat",
+		"a6 --bogus route list",
+		"a6 --bogus=value route list",
+		"a6 route list --Output json",
+		"a6 route list --output_json json",
+		"a6 route list -Z",
+		"a6 route list --output wide",
+		"a6 route list --output=wide",
+		"a6 route list -owide",
+		"a6 route get example --output table",
+		"a6 route list unexpected",
+		"a6 credential get",
 	}
-	regressionPath, regressionHelp, err = resolveCommand(binary, []string{"route", "--server", "https://example.test", "creat"}, rootCommands, rootFlags, valueFlags)
-	if err == nil {
-		t.Fatalf("expected misspelled command after a global flag to fail, got path %q and help %q", regressionPath, regressionHelp)
+	for _, invocation := range regressions {
+		if err := validateA6Invocation(binary, invocation, commandTree, rootCommands, rootFlags, valueFlags); err == nil {
+			t.Fatalf("expected invalid invocation %q to fail", invocation)
+		}
 	}
-	regressionPath, _, err = resolveCommand(binary, []string{"route", "-o", "yaml", "get", "example"}, rootCommands, rootFlags, valueFlags)
-	if err != nil || strings.Join(regressionPath, " ") != "route get" {
-		t.Fatalf("expected supported short root flag before subcommand, got path %q and error %v", regressionPath, err)
+	for _, invocation := range []string{
+		"a6 --output json route list",
+		"a6 --output=json route list",
+		"a6 route -o yaml get example",
+		"a6 route -oyaml get example",
+		`a6 debug trace api --header "X-Test: --not-a-flag"`,
+	} {
+		if err := validateA6Invocation(binary, invocation, commandTree, rootCommands, rootFlags, valueFlags); err != nil {
+			t.Fatalf("expected valid invocation %q: %v", invocation, err)
+		}
 	}
-	var embedded []string = cliInvocations("CURRENT=$(a6 route get blue-green)", invocationPattern)
+	embedded := cliInvocations("CURRENT=$(a6 route get blue-green)", invocationPattern)
 	if len(embedded) != 1 || !strings.HasPrefix(embedded[0], "a6 route get") {
 		t.Fatalf("expected embedded a6 invocation, got %q", embedded)
 	}
-	var quoted []string = cliInvocations(`a6 debug trace id --header "X-Test: a|b;c&d)" --bogus`, invocationPattern)
+	quoted := cliInvocations(`a6 debug trace id --header "X-Test: a|b;c&d)" --bogus`, invocationPattern)
 	if len(quoted) != 1 || !strings.Contains(quoted[0], "--bogus") {
 		t.Fatalf("expected quoted separators to preserve the complete invocation, got %q", quoted)
 	}
-	var capitalizedFlags []string = longFlagPattern.FindAllString("a6 route list --Output json", -1)
-	if len(capitalizedFlags) != 1 || capitalizedFlags[0] != "--Output" {
-		t.Fatalf("expected capitalized long flag typo to be extracted, got %q", capitalizedFlags)
-	}
-	regressionPath, regressionHelp, err = resolveCommand(binary, []string{"route", "list"}, rootCommands, rootFlags, valueFlags)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var regressionFlags map[string]bool = mergeFlagSets(rootFlags, availableFlags(regressionHelp, longFlagPattern))
-	if err = validateLongFlags("a6 route list --Output json", regressionFlags, longFlagPattern); err == nil {
-		t.Fatalf("expected capitalized flag typo for command %q to fail", strings.Join(regressionPath, " "))
-	}
-	var yamlBlocks []string
-	yamlBlocks, err = skillShellBlocks("```yaml\n- name: Validate\n  run: >\n    a6 route list\n    --unsupported\n```", shellFencePattern, yamlFencePattern)
+	yamlBlocks, err := skillShellBlocks("```yaml\n- name: Validate\n  run: >\n    a6 route list\n    --unsupported\n```", shellFencePattern, yamlFencePattern)
 	if err != nil {
 		t.Fatalf("failed to extract workflow run block: %v", err)
 	}
-	var yamlCommands []string = joinedShellLines(yamlBlocks[0])
+	yamlCommands := joinedShellLines(yamlBlocks[0])
 	if len(yamlCommands) != 1 || yamlCommands[0] != "a6 route list --unsupported" {
 		t.Fatalf("expected workflow run block, got %q", yamlBlocks)
 	}
 
-	var file string
-	for _, file = range matches {
-		var data []byte
-		data, err = os.ReadFile(file)
+	for _, file := range matches {
+		data, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
 		}
-		var declaredCommands []string
-		declaredCommands, err = frontmatterA6Commands(string(data))
+		declaredCommands, err := frontmatterA6Commands(string(data))
 		if err != nil {
 			t.Fatalf("%s: failed to parse frontmatter: %v", file, err)
 		}
-		var declaredCommand string
-		for _, declaredCommand = range declaredCommands {
-			var fields []string = strings.Fields(declaredCommand)
+		for _, declaredCommand := range declaredCommands {
+			fields := strings.Fields(declaredCommand)
 			if len(fields) < 2 || fields[0] != "a6" {
 				t.Fatalf("%s: a6_commands entry %q must start with a6 and include a command", file, declaredCommand)
 			}
-			var path []string
-			path, _, err = resolveCommand(binary, commandFields(fields[1:]), rootCommands, rootFlags, valueFlags)
+			commandArgs, err := commandFields(fields[1:], commandTree, rootFlags, valueFlags)
 			if err != nil {
 				t.Fatalf("%s: a6_commands entry %q is invalid: %v", file, declaredCommand, err)
 			}
-			if strings.Join(path, " ") != strings.Join(fields[1:], " ") {
+			path, _, remaining, err := resolveCommand(binary, commandArgs, rootCommands, rootFlags, valueFlags)
+			if err != nil {
+				t.Fatalf("%s: a6_commands entry %q is invalid: %v", file, declaredCommand, err)
+			}
+			if len(remaining) != 0 || strings.Join(path, " ") != strings.Join(fields[1:], " ") {
 				t.Fatalf("%s: a6_commands entry %q must contain only a command path", file, declaredCommand)
 			}
 		}
-		var blocks []string
-		blocks, err = skillShellBlocks(string(data), shellFencePattern, yamlFencePattern)
+		blocks, err := skillShellBlocks(string(data), shellFencePattern, yamlFencePattern)
 		if err != nil {
 			t.Fatalf("%s: failed to parse fenced YAML: %v", file, err)
 		}
-		var block string
-		for _, block = range blocks {
-			var lines []string = joinedShellLines(block)
-			var line string
-			for _, line = range lines {
-				var invocation string
-				for _, invocation = range cliInvocations(line, invocationPattern) {
-					var fields []string = strings.Fields(invocation)
-					if len(fields) < 2 {
-						continue
-					}
-					var path []string
-					var help string
-					path, help, err = resolveCommand(binary, commandFields(fields[1:]), rootCommands, rootFlags, valueFlags)
-					if err != nil {
-						t.Fatalf("%s: %v", file, err)
-					}
-					var validFlags map[string]bool = mergeFlagSets(rootFlags, availableFlags(help, longFlagPattern))
-					if err = validateLongFlags(invocation, validFlags, longFlagPattern); err != nil {
-						t.Fatalf("%s: command %q: %v", file, "a6 "+strings.Join(path, " "), err)
+		for _, block := range blocks {
+			for _, line := range joinedShellLines(block) {
+				for _, invocation := range cliInvocations(line, invocationPattern) {
+					invocation = workflowExpressionPattern.ReplaceAllString(invocation, "workflow-expression")
+					if err := validateA6Invocation(binary, invocation, commandTree, rootCommands, rootFlags, valueFlags); err != nil {
+						t.Fatalf("%s: command %q is invalid: %v", file, invocation, err)
 					}
 				}
 			}
@@ -179,15 +171,23 @@ func TestSkillCommandsUseSupportedA6CommandsAndFlags(t *testing.T) {
 	}
 }
 
-func validateLongFlags(invocation string, validFlags map[string]bool, longFlagPattern *regexp.Regexp) error {
-	var flags []string = longFlagPattern.FindAllString(invocation, -1)
-	var flag string
-	for _, flag = range flags {
-		if flag != "--help" && !validFlags[flag] {
-			return fmt.Errorf("uses unsupported flag %q", flag)
-		}
+func validateA6Invocation(binary, invocation string, root *cobra.Command, rootCommands, rootFlags, valueFlags map[string]bool) error {
+	fields, err := shellFields(invocation)
+	if err != nil {
+		return err
 	}
-	return nil
+	if len(fields) < 2 || fields[0] != "a6" {
+		return nil
+	}
+	commandArgs, err := commandFields(fields[1:], root, rootFlags, valueFlags)
+	if err != nil {
+		return err
+	}
+	path, _, remaining, err := resolveCommand(binary, commandArgs, rootCommands, rootFlags, valueFlags)
+	if err != nil {
+		return err
+	}
+	return validatePositionalArgs(root, path, remaining)
 }
 
 func frontmatterA6Commands(data string) ([]string, error) {
@@ -266,27 +266,61 @@ func collectYAMLRunBlocks(node *yaml.Node, runBlocks *[]string) {
 	}
 }
 
-func commandFields(fields []string) []string {
-	var valueFlags map[string]bool = a6GlobalValueFlags()
+func commandFields(fields []string, root *cobra.Command, rootFlags, valueFlags map[string]bool) ([]string, error) {
 	for len(fields) > 0 && strings.HasPrefix(fields[0], "-") {
-		var flag string = strings.SplitN(fields[0], "=", 2)[0]
-		var hasInlineValue bool = strings.Contains(fields[0], "=")
+		field := fields[0]
+		flagName, flag, value, hasInlineValue := rootFlag(root, field)
+		if flag == nil || !rootFlags[flagName] {
+			return nil, fmt.Errorf("unsupported root flag %q", flagName)
+		}
 		fields = fields[1:]
-		if valueFlags[flag] && !hasInlineValue && len(fields) > 0 {
+		if valueFlags[flagName] && !hasInlineValue {
+			if len(fields) == 0 {
+				return nil, fmt.Errorf("flag %q requires a value", flagName)
+			}
+			value = fields[0]
 			fields = fields[1:]
 		}
+		if err := validateKnownFlagValue(flag, value); err != nil {
+			return nil, err
+		}
 	}
-	return fields
+	return fields, nil
 }
 
-func a6GlobalValueFlags() map[string]bool {
-	return map[string]bool{
-		"--api-key": true,
-		"--context": true,
-		"--output":  true,
-		"--server":  true,
-		"-o":        true,
+func rootFlag(root *cobra.Command, field string) (string, *pflag.Flag, string, bool) {
+	if strings.HasPrefix(field, "--") {
+		nameValue := strings.TrimPrefix(field, "--")
+		name, value, hasInlineValue := strings.Cut(nameValue, "=")
+		return "--" + name, lookupFlag(root, name), value, hasInlineValue
 	}
+	shorthandValue := strings.TrimPrefix(field, "-")
+	if shorthandValue == "" {
+		return field, nil, "", false
+	}
+	shorthand := shorthandValue[:1]
+	value := strings.TrimPrefix(shorthandValue[1:], "=")
+	return "-" + shorthand, lookupShorthandFlag(root, shorthand), value, len(shorthandValue) > 1
+}
+
+func rootFlagSets(root *cobra.Command) (map[string]bool, map[string]bool) {
+	rootFlags := map[string]bool{}
+	valueFlags := map[string]bool{}
+	root.PersistentFlags().VisitAll(func(flag *pflag.Flag) {
+		longName := "--" + flag.Name
+		rootFlags[longName] = true
+		if flag.NoOptDefVal == "" {
+			valueFlags[longName] = true
+		}
+		if flag.Shorthand != "" {
+			shortName := "-" + flag.Shorthand
+			rootFlags[shortName] = true
+			if flag.NoOptDefVal == "" {
+				valueFlags[shortName] = true
+			}
+		}
+	})
+	return rootFlags, valueFlags
 }
 
 func commandHelp(binary string, path []string) (string, error) {
@@ -325,80 +359,16 @@ func availableCommands(help string) map[string]bool {
 	return commands
 }
 
-func availableFlags(help string, longFlagPattern *regexp.Regexp) map[string]bool {
-	var flags map[string]bool = map[string]bool{}
-	var inFlags bool
-	var lines []string = strings.Split(help, "\n")
-	var line string
-	for _, line = range lines {
-		var heading string = strings.TrimSpace(line)
-		if heading == "Flags:" || heading == "Global Flags:" {
-			inFlags = true
-			continue
-		}
-		if heading == "" {
-			inFlags = false
-			continue
-		}
-		if !inFlags {
-			continue
-		}
-		var flag string = longFlagPattern.FindString(line)
-		if flag != "" {
-			flags[flag] = true
-		}
-	}
-	return flags
-}
-
-func availableShortFlags(help string) map[string]bool {
-	var flags map[string]bool = map[string]bool{}
-	var shortFlagPattern *regexp.Regexp = regexp.MustCompile(`(?:^|\s)(-[A-Za-z])(?:,|\s|$)`)
-	var inFlags bool
-	var line string
-	for _, line = range strings.Split(help, "\n") {
-		var heading string = strings.TrimSpace(line)
-		if heading == "Flags:" || heading == "Global Flags:" {
-			inFlags = true
-			continue
-		}
-		if heading == "" {
-			inFlags = false
-			continue
-		}
-		if !inFlags {
-			continue
-		}
-		var match []string = shortFlagPattern.FindStringSubmatch(line)
-		if len(match) > 1 {
-			flags[match[1]] = true
-		}
-	}
-	return flags
-}
-
-func mergeFlagSets(first map[string]bool, second map[string]bool) map[string]bool {
-	var merged map[string]bool = map[string]bool{}
-	var flag string
-	for flag = range first {
-		merged[flag] = true
-	}
-	for flag = range second {
-		merged[flag] = true
-	}
-	return merged
-}
-
-func resolveCommand(binary string, fields []string, commands map[string]bool, rootFlags map[string]bool, valueFlags map[string]bool) ([]string, string, error) {
+func resolveCommand(binary string, fields []string, commands, rootFlags, valueFlags map[string]bool) ([]string, string, []string, error) {
 	if len(fields) == 0 || !commands[fields[0]] {
-		return nil, "", fmt.Errorf("unsupported a6 command %q", strings.Join(fields, " "))
+		return nil, "", nil, fmt.Errorf("unsupported a6 command %q", strings.Join(fields, " "))
 	}
 	var path []string = []string{fields[0]}
 	var help string
 	var err error
 	help, err = commandHelp(binary, path)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 	var index int = 1
 	for index < len(fields) {
@@ -411,30 +381,219 @@ func resolveCommand(binary string, fields []string, commands map[string]bool, ro
 			break
 		}
 		if strings.HasPrefix(field, "-") {
-			var flag string = strings.SplitN(field, "=", 2)[0]
+			flag := strings.SplitN(field, "=", 2)[0]
+			hasInlineValue := strings.Contains(field, "=")
+			if strings.HasPrefix(flag, "-") && !strings.HasPrefix(flag, "--") && len(flag) > 2 {
+				flag = flag[:2]
+				hasInlineValue = true
+			}
 			if !rootFlags[flag] {
-				return path, help, fmt.Errorf("unsupported interspersed flag %q before a6 subcommand", flag)
+				return path, help, nil, fmt.Errorf("unsupported interspersed flag %q before a6 subcommand", flag)
 			}
 			index++
-			if valueFlags[flag] && !strings.Contains(field, "=") {
+			if valueFlags[flag] && !hasInlineValue {
 				if index >= len(fields) {
-					return path, help, fmt.Errorf("flag %q requires a value", flag)
+					return path, help, nil, fmt.Errorf("flag %q requires a value", flag)
 				}
 				index++
 			}
 			continue
 		}
 		if !subcommands[field] {
-			return path, help, fmt.Errorf("unsupported nested command %q after %q", field, strings.Join(path, " "))
+			return path, help, nil, fmt.Errorf("unsupported nested command %q after %q", field, strings.Join(path, " "))
 		}
 		path = append(path, field)
 		help, err = commandHelp(binary, path)
 		if err != nil {
-			return nil, "", err
+			return nil, "", nil, err
 		}
 		index++
 	}
-	return path, help, nil
+	return path, help, fields[index:], nil
+}
+
+func newA6CommandTree(t *testing.T) *cobra.Command {
+	t.Helper()
+	ios, _, _, _ := iostreams.Test()
+	cfg := config.NewFileConfigWithPath(filepath.Join(t.TempDir(), "config.yaml"))
+	factory := &cmd.Factory{
+		IOStreams: ios,
+		HttpClient: func() (*http.Client, error) {
+			return http.DefaultClient, nil
+		},
+		Config: func() (config.Config, error) {
+			return cfg, nil
+		},
+	}
+	return rootcmd.NewCmdRoot(factory)
+}
+
+func validatePositionalArgs(root *cobra.Command, path, fields []string) error {
+	command, remainingPath, err := root.Find(path)
+	if err != nil {
+		return err
+	}
+	if len(remainingPath) != 0 {
+		return fmt.Errorf("failed to resolve command path %q", strings.Join(path, " "))
+	}
+	args, err := positionalArgs(command, fields)
+	if err != nil {
+		return err
+	}
+	return command.ValidateArgs(args)
+}
+
+func positionalArgs(command *cobra.Command, fields []string) ([]string, error) {
+	var args []string
+	for index := 0; index < len(fields); index++ {
+		field := fields[index]
+		if strings.ContainsAny(field, "|<>") {
+			break
+		}
+		if field == "--" {
+			for _, arg := range fields[index+1:] {
+				if strings.ContainsAny(arg, "|<>") {
+					break
+				}
+				args = append(args, arg)
+			}
+			break
+		}
+		if strings.HasPrefix(field, "--") {
+			nameValue := strings.TrimPrefix(field, "--")
+			name, value, hasInlineValue := strings.Cut(nameValue, "=")
+			flag := lookupFlag(command, name)
+			if flag == nil {
+				return nil, fmt.Errorf("unsupported flag %q", field)
+			}
+			if !hasInlineValue && flag.NoOptDefVal == "" {
+				index++
+				if index >= len(fields) {
+					return nil, fmt.Errorf("flag %q requires a value", field)
+				}
+				value = fields[index]
+			}
+			if err := validateKnownFlagValue(flag, value); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if strings.HasPrefix(field, "-") && field != "-" {
+			shorthandValue := strings.TrimPrefix(field, "-")
+			shorthand := shorthandValue[:1]
+			flag := lookupShorthandFlag(command, shorthand)
+			if flag == nil {
+				return nil, fmt.Errorf("unsupported shorthand flag %q", field)
+			}
+			hasInlineValue := len(shorthandValue) > 1
+			value := strings.TrimPrefix(shorthandValue[1:], "=")
+			if !hasInlineValue && flag.NoOptDefVal == "" {
+				index++
+				if index >= len(fields) {
+					return nil, fmt.Errorf("flag %q requires a value", field)
+				}
+				value = fields[index]
+			}
+			if err := validateKnownFlagValue(flag, value); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		args = append(args, field)
+	}
+	return args, nil
+}
+
+func validateKnownFlagValue(flag *pflag.Flag, value string) error {
+	if flag == nil || flag.Name != "output" || value == "" || value == "workflow-expression" || strings.HasPrefix(value, "$") || strings.HasPrefix(value, "<") {
+		return nil
+	}
+	_, formats, ok := strings.Cut(flag.Usage, ":")
+	if !ok {
+		return nil
+	}
+	for _, format := range strings.Split(formats, ",") {
+		if value == strings.TrimSpace(format) {
+			return nil
+		}
+	}
+	return fmt.Errorf("unsupported output format %q", value)
+}
+
+func lookupFlag(command *cobra.Command, name string) *pflag.Flag {
+	if flag := command.Flags().Lookup(name); flag != nil {
+		return flag
+	}
+	if flag := command.InheritedFlags().Lookup(name); flag != nil {
+		return flag
+	}
+	return command.Root().PersistentFlags().Lookup(name)
+}
+
+func lookupShorthandFlag(command *cobra.Command, shorthand string) *pflag.Flag {
+	if flag := command.Flags().ShorthandLookup(shorthand); flag != nil {
+		return flag
+	}
+	if flag := command.InheritedFlags().ShorthandLookup(shorthand); flag != nil {
+		return flag
+	}
+	return command.Root().PersistentFlags().ShorthandLookup(shorthand)
+}
+
+func shellFields(line string) ([]string, error) {
+	var fields []string
+	var current strings.Builder
+	var quote rune
+	var escaped bool
+	var started bool
+	for _, char := range line {
+		if escaped {
+			current.WriteRune(char)
+			escaped = false
+			started = true
+			continue
+		}
+		if quote != 0 {
+			if char == quote {
+				quote = 0
+				continue
+			}
+			if quote == '"' && char == '\\' {
+				escaped = true
+				continue
+			}
+			current.WriteRune(char)
+			started = true
+			continue
+		}
+		switch {
+		case char == '\\':
+			escaped = true
+			started = true
+		case char == '\'' || char == '"':
+			quote = char
+			started = true
+		case unicode.IsSpace(char):
+			if started {
+				fields = append(fields, current.String())
+				current.Reset()
+				started = false
+			}
+		default:
+			current.WriteRune(char)
+			started = true
+		}
+	}
+	if escaped {
+		return nil, fmt.Errorf("unfinished escape")
+	}
+	if quote != 0 {
+		return nil, fmt.Errorf("unterminated quote %q", string(quote))
+	}
+	if started {
+		fields = append(fields, current.String())
+	}
+	return fields, nil
 }
 
 func cliInvocations(line string, invocationPattern *regexp.Regexp) []string {

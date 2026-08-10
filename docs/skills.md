@@ -6,9 +6,10 @@ This document describes the skill system for the a6 CLI. Skills are structured k
 
 Skills are `SKILL.md` files stored in the `skills/` directory. Each skill provides domain-specific instructions, command patterns, and decision guidance for AI agents. The supported installation examples cover Claude Code, Codex, Cursor, and GitHub Copilot.
 
-Install the narrowest skill needed for the current task. Do not install the full
-collection by default: overlapping persona, recipe, and plugin guidance adds
-routing ambiguity and makes review and updates harder.
+Start with one task-specific skill. Add another only when the task clearly spans
+multiple workflows. Do not install the full collection by default: overlapping
+persona, recipe, and plugin guidance can make skill routing and updates harder
+to review.
 
 ## Install a Skill
 
@@ -139,7 +140,8 @@ tests. The checks cover:
 4. `name` follows kebab-case pattern
 5. `description` is non-empty
 6. Commands used in shell examples exist in the current a6 CLI
-7. Long flags used in shell examples are supported by that command or globally
+7. Flags used in shell examples are supported by that command or globally
+8. Literal output formats and positional argument counts match the command
 
 Run locally:
 
