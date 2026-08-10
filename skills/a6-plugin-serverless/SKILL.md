@@ -17,7 +17,7 @@ metadata:
   a6_commands:
     - a6 route create
     - a6 route update
-    - a6 globalrule create
+    - a6 global-rule create
     - a6 config sync
 ---
 

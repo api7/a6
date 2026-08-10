@@ -10,13 +10,14 @@ author: Apache APISIX Contributors
 license: Apache-2.0
 metadata:
   category: plugin
-  apisix_version: ">=3.0.0"
+  apisix_version: ">=3.11.0"
   plugin_name: basic-auth
   a6_commands:
     - a6 route create
     - a6 route update
     - a6 consumer create
     - a6 consumer update
+    - a6 credential create
 ---
 
 # a6-plugin-basic-auth
@@ -64,19 +65,18 @@ EOF
 
 ### 2. Add basic-auth credential
 
+Save the credential as `credential.yaml`, then create it:
+
+```yaml
+id: cred-alice-basic-auth
+plugins:
+  basic-auth:
+    username: alice
+    password: alice-password-123
+```
+
 ```bash
-curl "$(a6 context current -o json | jq -r .server)/apisix/admin/consumers/alice/credentials" \
-  -X PUT \
-  -H "X-API-KEY: $(a6 context current -o json | jq -r .api_key)" \
-  -d '{
-    "id": "cred-alice-basic-auth",
-    "plugins": {
-      "basic-auth": {
-        "username": "alice",
-        "password": "alice-password-123"
-      }
-    }
-  }'
+a6 credential create --consumer alice -f credential.yaml
 ```
 
 ### 3. Create a route with basic-auth enabled

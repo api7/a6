@@ -10,7 +10,7 @@ author: Apache APISIX Contributors
 license: Apache-2.0
 metadata:
   category: persona
-  apisix_version: ">=3.0.0"
+  apisix_version: ">=3.11.0"
   a6_commands:
     - a6 route create
     - a6 route update
@@ -18,6 +18,7 @@ metadata:
     - a6 upstream create
     - a6 service create
     - a6 consumer create
+    - a6 credential create
     - a6 plugin list
     - a6 plugin get
     - a6 config sync
@@ -49,7 +50,7 @@ go install github.com/api7/a6/cmd/a6@latest
 a6 context create dev --server http://localhost:9180 --api-key edd1c9f034335f136f87ad84b625c8f1
 
 # Verify connection
-a6 health
+a6 route list --output table
 ```
 
 ### 2. Explore available plugins
@@ -287,9 +288,6 @@ upstreams:
 
 consumers:
   - username: dev
-    plugins:
-      key-auth:
-        key: dev-key
 
 routes:
   - id: api
@@ -303,23 +301,34 @@ EOF
 a6 config sync -f dev-config.yaml
 ```
 
+Create authentication data as a separate credential resource. Save the
+following as `dev-credential.yaml`:
+
+```yaml
+id: dev-key-auth
+plugins:
+  key-auth:
+    key: dev-key
+```
+
+```bash
+a6 credential create --consumer dev -f dev-credential.yaml
+```
+
 ## Debugging
 
 ### Trace a request
 
 ```bash
 # See how APISIX routes a specific request
-a6 debug trace --uri /api/users --method GET --header "apikey: dev-key"
+a6 debug trace api --path /api/users --method GET --header "apikey: dev-key"
 ```
 
 ### Stream logs
 
 ```bash
-# Watch APISIX error logs in real-time
+# Watch APISIX container logs in real-time
 a6 debug logs --follow
-
-# Filter by log level
-a6 debug logs --follow --level error
 ```
 
 ### Inspect a route's full config
@@ -350,14 +359,13 @@ a6 route get my-api --output json | jq .
     a6 config sync -f apisix-config.yaml
 ```
 
-### Export for other tools
+### Export the current configuration
+
+`a6 config dump` does not export Consumer Credential subresources. Keep the
+credential files in your secure deployment workflow and restore them separately.
 
 ```bash
-# Export to Kubernetes-friendly format
-a6 export --format kubernetes > k8s-apisix.yaml
-
-# Export to standalone YAML
-a6 export --format standalone > apisix-standalone.yaml
+a6 config dump --output yaml > apisix-backup.yaml
 ```
 
 ## Decision Framework
@@ -369,7 +377,7 @@ a6 export --format standalone > apisix-standalone.yaml
 | Multiple routes, same config | Create a Service → reference via `service_id` |
 | Need rate limiting | Choose `limit-count` (fixed) or `limit-req` (smooth) → add to route |
 | Backend URL changed | `a6 upstream update <id>` with new nodes |
-| Debug 502 errors | `a6 debug trace` → `a6 upstream health` → check backend |
+| Debug 502 errors | `a6 debug trace <route-id>` → `a6 upstream health` → check backend |
 | Prepare for production | `a6 config dump` → commit to git → `a6 config validate` in CI |
 | Test a new plugin | `a6 plugin get <name>` for schema → add to a test route → verify |
 

@@ -1,55 +1,67 @@
 ---
 name: a6-recipe-multi-tenant
 description: >-
-  Recipe skill for implementing multi-tenant API gateway patterns using the a6
-  CLI. Covers tenant isolation via Consumer Groups, host/path/header-based
-  routing, per-tenant rate limiting, context forwarding with proxy-rewrite,
-  and declarative config sync workflows for multi-tenant management.
+  Recipe skill for implementing tenant-aware policies on a shared APISIX
+  gateway using the a6 CLI. Covers shared policies through Consumer Groups,
+  host/path/authenticated-consumer routing, per-consumer rate limiting, context
+  forwarding with proxy-rewrite, and declarative configuration workflows.
 version: "1.0.0"
 author: Apache APISIX Contributors
 license: Apache-2.0
 metadata:
   category: recipe
-  apisix_version: ">=3.0.0"
+  apisix_version: ">=3.11.0"
   a6_commands:
     - a6 consumer create
     - a6 consumer-group create
+    - a6 consumer-group list
+    - a6 consumer get
+    - a6 credential create
     - a6 route create
     - a6 route update
+    - a6 upstream create
+    - a6 config diff
     - a6 config sync
     - a6 config dump
 ---
 
-# a6-recipe-multi-tenant
+# Build Tenant-Aware Policies on a Shared Gateway
 
 ## Overview
 
-Multi-tenancy in an API gateway means serving multiple isolated tenants (customers,
-teams, or business units) through the same gateway instance, each with their own
-rate limits, authentication, and routing rules.
+APISIX does not provide a Tenant resource or a built-in tenant isolation model.
+This recipe combines APISIX capabilities to serve customers, teams, or business
+units through one shared gateway with different authentication, routing, and
+traffic policies.
 
-APISIX achieves multi-tenancy through:
-1. **Consumer Groups** — group consumers into tenants with shared plugin configs
-2. **Host/path/header-based routing** — route requests to tenant-specific upstreams
-3. **Per-tenant rate limiting** — enforce quotas per consumer group
+These patterns separate request handling and policy behavior. They do not
+isolate Admin API access, configuration storage, or gateway runtime resources.
+Use separate APISIX deployments when stronger administrative or runtime
+isolation is required.
+
+This recipe composes:
+1. **Consumer Groups** — apply shared plugin configurations to related consumers
+2. **Host/path/authenticated-consumer routing** — route requests to
+   tenant-specific upstreams
+3. **Per-consumer rate limiting** — enforce different quotas within policy groups
 4. **Proxy-rewrite** — forward tenant context to backends via headers
 
 ## When to Use
 
 - Multiple customers sharing a single API gateway
-- Internal platform serving different teams with isolated quotas
-- SaaS application requiring per-tenant rate limits and auth
+- Internal platform serving different teams with separate policy and quota settings
+- SaaS application requiring tenant-aware routing and authentication
 - Need to forward tenant identity to backend services
 
-## Approach A: Consumer Groups for Tenant Isolation
+## Approach A: Consumer Groups for Shared Tenant Policies
 
-Group consumers by tenant. Each tenant gets shared plugin configuration
-(rate limits, transformations) applied via the consumer group.
+Group consumers by tenant or service tier. Each group supplies shared plugin
+configuration, such as rate limits and transformations, to its consumers.
 
-### 1. Create consumer groups (one per tenant)
+### 1. Create consumer groups for tenant policy sets
 
 ```bash
-# Free tier — 100 requests/day
+# Free tier — 100 requests/day per consumer
 a6 consumer-group create -f - <<'EOF'
 {
   "id": "tenant-free",
@@ -67,7 +79,7 @@ a6 consumer-group create -f - <<'EOF'
 }
 EOF
 
-# Pro tier — 10000 requests/day
+# Pro tier — 10000 requests/day per consumer
 a6 consumer-group create -f - <<'EOF'
 {
   "id": "tenant-pro",
@@ -179,10 +191,12 @@ a6 route create -f - <<'EOF'
 EOF
 ```
 
-## Approach C: Header-Based Tenant Routing
+## Approach C: Authenticated Tenant Routing
 
-Use a custom header (e.g., `X-Tenant-ID`) to route to different upstreams
-via `traffic-split`.
+Use the authenticated `consumer_name` variable to route to different upstreams
+with `traffic-split`. Authentication plugins populate this APISIX variable from
+the matched Consumer before `traffic-split` runs, so a client cannot select
+another tenant's upstream by spoofing a request header.
 
 ```bash
 a6 route create -f - <<'EOF'
@@ -193,13 +207,13 @@ a6 route create -f - <<'EOF'
     "traffic-split": {
       "rules": [
         {
-          "match": [{ "vars": [["http_x_tenant_id", "==", "tenant-a"]] }],
+          "match": [{ "vars": [["consumer_name", "==", "acme-corp"]] }],
           "weighted_upstreams": [
             { "upstream": { "type": "roundrobin", "nodes": { "tenant-a-backend:8080": 1 } }, "weight": 1 }
           ]
         },
         {
-          "match": [{ "vars": [["http_x_tenant_id", "==", "tenant-b"]] }],
+          "match": [{ "vars": [["consumer_name", "==", "startup-xyz"]] }],
           "weighted_upstreams": [
             { "upstream": { "type": "roundrobin", "nodes": { "tenant-b-backend:8080": 1 } }, "weight": 1 }
           ]
@@ -240,9 +254,9 @@ EOF
 
 Backend receives `X-Consumer-Name: acme-corp` and `X-Consumer-Group: tenant-pro`.
 
-## Declarative Multi-Tenant Config
+## Declarative Tenant-Aware Configuration
 
-Manage all tenants declaratively with `a6 config sync`:
+Manage tenant groups, consumers, and routes declaratively with `a6 config sync`:
 
 ```yaml
 # apisix-tenants.yaml
@@ -267,14 +281,8 @@ consumer_groups:
 consumers:
   - username: acme-corp
     group_id: tenant-pro
-    plugins:
-      key-auth:
-        key: acme-secret-key
   - username: startup-xyz
     group_id: tenant-free
-    plugins:
-      key-auth:
-        key: startup-xyz-key
 
 routes:
   - id: api-v1
@@ -300,8 +308,41 @@ a6 config diff -f apisix-tenants.yaml
 a6 config sync -f apisix-tenants.yaml
 ```
 
+Create each tenant's `key-auth` data as a credential after the consumers
+exist. For example, save the following as `acme-credential.yaml`:
+
+```yaml
+id: acme-key-auth
+plugins:
+  key-auth:
+    key: acme-secret-key
+```
+
+```bash
+a6 credential create --consumer acme-corp -f acme-credential.yaml
+```
+
+Save the free-tier credential as `startup-credential.yaml`:
+
+```yaml
+id: startup-key-auth
+plugins:
+  key-auth:
+    key: startup-xyz-key
+```
+
+```bash
+a6 credential create --consumer startup-xyz -f startup-credential.yaml
+```
+
 ## Gotchas
 
+- **Consumer Groups are not isolation boundaries** — they reuse plugin
+  configurations across consumers. All groups still share the same APISIX
+  administrative surface, configuration storage, and gateway runtime.
+- **Credentials are separate resources** — `a6 config sync` and `a6 config dump`
+  do not manage Consumer Credential subresources. Store credential files securely
+  and apply or restore them separately with `a6 credential` commands.
 - **Consumer group plugins merge** — plugins set on the consumer group are merged
   with plugins on the individual consumer. The consumer's plugin config takes
   precedence if both define the same plugin.
@@ -309,6 +350,9 @@ a6 config sync -f apisix-tenants.yaml
 - **Rate limit key** — use `key_type: "var"` with `key: "consumer_name"` to
   enforce per-consumer limits within a group. Without this, the limit applies
   globally across all consumers in the group.
+- **Tenant routing identity** — match `consumer_name` or `consumer_group_id`
+  after authentication. Do not route on a client-supplied tenant header because
+  an authenticated consumer could spoof another tenant's value.
 - **Variable names in proxy-rewrite** — `$consumer_name` and `$consumer_group_id`
   are APISIX built-in variables, available only after authentication runs.
   Ensure the auth plugin (key-auth, jwt-auth, etc.) has higher priority than

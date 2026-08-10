@@ -154,7 +154,7 @@ Only allow consumers in `enterprise` group:
 
 ```bash
 # Create consumer group
-a6 consumergroup create -f - <<'EOF'
+a6 consumer-group create -f - <<'EOF'
 {
   "id": "enterprise",
   "plugins": {

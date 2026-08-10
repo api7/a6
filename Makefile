@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install help test-e2e docker-up docker-down validate-skills
+.PHONY: build test lint clean install help test-e2e docker-up docker-down validate-skills test-skills check
 
 # Build variables
 BINARY_NAME := a6
@@ -81,5 +81,9 @@ docker-down:
 validate-skills:
 	./scripts/validate-skills.sh
 
+## test-skills: Validate commands and flags used in skill shell examples
+test-skills:
+	go test ./test/skills -count=1
+
 ## check: Run all checks (fmt, vet, lint, test)
-check: fmt vet lint test
+check: fmt vet lint test validate-skills test-skills
