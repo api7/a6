@@ -47,7 +47,7 @@ func buildA6Binary(t *testing.T, root string) string {
 	return binary
 }
 
-func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
+func TestSkillCommandsUseSupportedA6CommandsAndFlags(t *testing.T) {
 	var shellFencePattern *regexp.Regexp = regexp.MustCompile("(?s)```(?:bash|sh|shell)\\s*\\n(.*?)```")
 	var yamlFencePattern *regexp.Regexp = regexp.MustCompile("(?s)```(?:yaml|yml)\\s*\\n(.*?)```")
 	var longFlagPattern *regexp.Regexp = regexp.MustCompile(`--[a-z][a-z0-9-]*`)
@@ -115,6 +115,26 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		var declaredCommands []string
+		declaredCommands, err = frontmatterA6Commands(string(data))
+		if err != nil {
+			t.Fatalf("%s: failed to parse frontmatter: %v", file, err)
+		}
+		var declaredCommand string
+		for _, declaredCommand = range declaredCommands {
+			var fields []string = strings.Fields(declaredCommand)
+			if len(fields) < 2 || fields[0] != "a6" {
+				t.Fatalf("%s: a6_commands entry %q must start with a6 and include a command", file, declaredCommand)
+			}
+			var path []string
+			path, _, err = resolveCommand(binary, commandFields(fields[1:]), rootCommands, rootFlags, valueFlags)
+			if err != nil {
+				t.Fatalf("%s: a6_commands entry %q is invalid: %v", file, declaredCommand, err)
+			}
+			if strings.Join(path, " ") != strings.Join(fields[1:], " ") {
+				t.Fatalf("%s: a6_commands entry %q must contain only a command path", file, declaredCommand)
+			}
+		}
 		var blocks []string
 		blocks, err = skillShellBlocks(string(data), shellFencePattern, yamlFencePattern)
 		if err != nil {
@@ -149,6 +169,34 @@ func TestSkillShellExamplesUseSupportedA6CommandsAndFlags(t *testing.T) {
 			}
 		}
 	}
+}
+
+func frontmatterA6Commands(data string) ([]string, error) {
+	var lines []string = strings.Split(data, "\n")
+	if len(lines) < 3 || lines[0] != "---" {
+		return nil, fmt.Errorf("missing opening frontmatter delimiter")
+	}
+	var end int = -1
+	var index int
+	for index = 1; index < len(lines); index++ {
+		if lines[index] == "---" {
+			end = index
+			break
+		}
+	}
+	if end == -1 {
+		return nil, fmt.Errorf("missing closing frontmatter delimiter")
+	}
+	var frontmatter struct {
+		Metadata struct {
+			A6Commands []string `yaml:"a6_commands"`
+		} `yaml:"metadata"`
+	}
+	var err error = yaml.Unmarshal([]byte(strings.Join(lines[1:end], "\n")), &frontmatter)
+	if err != nil {
+		return nil, err
+	}
+	return frontmatter.Metadata.A6Commands, nil
 }
 
 func skillShellBlocks(data string, shellFencePattern *regexp.Regexp, yamlFencePattern *regexp.Regexp) ([]string, error) {
