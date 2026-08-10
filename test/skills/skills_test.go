@@ -50,7 +50,7 @@ func buildA6Binary(t *testing.T, root string) string {
 func TestSkillCommandsUseSupportedA6CommandsAndFlags(t *testing.T) {
 	var shellFencePattern *regexp.Regexp = regexp.MustCompile("(?s)```(?:bash|sh|shell)\\s*\\n(.*?)```")
 	var yamlFencePattern *regexp.Regexp = regexp.MustCompile("(?s)```(?:yaml|yml)\\s*\\n(.*?)```")
-	var longFlagPattern *regexp.Regexp = regexp.MustCompile(`--[a-z][a-z0-9-]*`)
+	var longFlagPattern *regexp.Regexp = regexp.MustCompile(`--[A-Za-z][A-Za-z0-9-]*`)
 	var invocationPattern *regexp.Regexp = regexp.MustCompile(`(?:^|[^A-Za-z0-9_-])(a6)(?:\s|$)`)
 	var valueFlags map[string]bool = a6GlobalValueFlags()
 	var root string
@@ -97,6 +97,18 @@ func TestSkillCommandsUseSupportedA6CommandsAndFlags(t *testing.T) {
 	var quoted []string = cliInvocations(`a6 debug trace id --header "X-Test: a|b;c&d)" --bogus`, invocationPattern)
 	if len(quoted) != 1 || !strings.Contains(quoted[0], "--bogus") {
 		t.Fatalf("expected quoted separators to preserve the complete invocation, got %q", quoted)
+	}
+	var capitalizedFlags []string = longFlagPattern.FindAllString("a6 route list --Output json", -1)
+	if len(capitalizedFlags) != 1 || capitalizedFlags[0] != "--Output" {
+		t.Fatalf("expected capitalized long flag typo to be extracted, got %q", capitalizedFlags)
+	}
+	regressionPath, regressionHelp, err = resolveCommand(binary, []string{"route", "list"}, rootCommands, rootFlags, valueFlags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var regressionFlags map[string]bool = mergeFlagSets(rootFlags, availableFlags(regressionHelp, longFlagPattern))
+	if err = validateLongFlags("a6 route list --Output json", regressionFlags, longFlagPattern); err == nil {
+		t.Fatalf("expected capitalized flag typo for command %q to fail", strings.Join(regressionPath, " "))
 	}
 	var yamlBlocks []string
 	yamlBlocks, err = skillShellBlocks("```yaml\n- name: Validate\n  run: >\n    a6 route list\n    --unsupported\n```", shellFencePattern, yamlFencePattern)
@@ -158,17 +170,24 @@ func TestSkillCommandsUseSupportedA6CommandsAndFlags(t *testing.T) {
 						t.Fatalf("%s: %v", file, err)
 					}
 					var validFlags map[string]bool = mergeFlagSets(rootFlags, availableFlags(help, longFlagPattern))
-					var flags []string = longFlagPattern.FindAllString(invocation, -1)
-					var flag string
-					for _, flag = range flags {
-						if flag != "--help" && !validFlags[flag] {
-							t.Fatalf("%s: command %q uses unsupported flag %q", file, "a6 "+strings.Join(path, " "), flag)
-						}
+					if err = validateLongFlags(invocation, validFlags, longFlagPattern); err != nil {
+						t.Fatalf("%s: command %q: %v", file, "a6 "+strings.Join(path, " "), err)
 					}
 				}
 			}
 		}
 	}
+}
+
+func validateLongFlags(invocation string, validFlags map[string]bool, longFlagPattern *regexp.Regexp) error {
+	var flags []string = longFlagPattern.FindAllString(invocation, -1)
+	var flag string
+	for _, flag = range flags {
+		if flag != "--help" && !validFlags[flag] {
+			return fmt.Errorf("uses unsupported flag %q", flag)
+		}
+	}
+	return nil
 }
 
 func frontmatterA6Commands(data string) ([]string, error) {
