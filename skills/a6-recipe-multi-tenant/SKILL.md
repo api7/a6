@@ -3,8 +3,8 @@ name: a6-recipe-multi-tenant
 description: >-
   Recipe skill for implementing tenant-aware policies on a shared APISIX
   gateway using the a6 CLI. Covers shared policies through Consumer Groups,
-  host/path/header-based routing, per-consumer rate limiting, context forwarding
-  with proxy-rewrite, and declarative configuration workflows.
+  host/path/authenticated-consumer routing, per-consumer rate limiting, context
+  forwarding with proxy-rewrite, and declarative configuration workflows.
 version: "1.0.0"
 author: Apache APISIX Contributors
 license: Apache-2.0
@@ -41,7 +41,8 @@ isolation is required.
 
 This recipe composes:
 1. **Consumer Groups** — apply shared plugin configurations to related consumers
-2. **Host/path/header-based routing** — route requests to tenant-specific upstreams
+2. **Host/path/authenticated-consumer routing** — route requests to
+   tenant-specific upstreams
 3. **Per-consumer rate limiting** — enforce different quotas within policy groups
 4. **Proxy-rewrite** — forward tenant context to backends via headers
 
@@ -190,10 +191,12 @@ a6 route create -f - <<'EOF'
 EOF
 ```
 
-## Approach C: Header-Based Tenant Routing
+## Approach C: Authenticated Tenant Routing
 
-Use a custom header (e.g., `X-Tenant-ID`) to route to different upstreams
-via `traffic-split`.
+Use the authenticated `consumer_name` variable to route to different upstreams
+with `traffic-split`. Authentication plugins populate this APISIX variable from
+the matched Consumer before `traffic-split` runs, so a client cannot select
+another tenant's upstream by spoofing a request header.
 
 ```bash
 a6 route create -f - <<'EOF'
@@ -204,13 +207,13 @@ a6 route create -f - <<'EOF'
     "traffic-split": {
       "rules": [
         {
-          "match": [{ "vars": [["http_x_tenant_id", "==", "tenant-a"]] }],
+          "match": [{ "vars": [["consumer_name", "==", "acme-corp"]] }],
           "weighted_upstreams": [
             { "upstream": { "type": "roundrobin", "nodes": { "tenant-a-backend:8080": 1 } }, "weight": 1 }
           ]
         },
         {
-          "match": [{ "vars": [["http_x_tenant_id", "==", "tenant-b"]] }],
+          "match": [{ "vars": [["consumer_name", "==", "startup-xyz"]] }],
           "weighted_upstreams": [
             { "upstream": { "type": "roundrobin", "nodes": { "tenant-b-backend:8080": 1 } }, "weight": 1 }
           ]
@@ -347,6 +350,9 @@ a6 credential create --consumer startup-xyz -f startup-credential.yaml
 - **Rate limit key** — use `key_type: "var"` with `key: "consumer_name"` to
   enforce per-consumer limits within a group. Without this, the limit applies
   globally across all consumers in the group.
+- **Tenant routing identity** — match `consumer_name` or `consumer_group_id`
+  after authentication. Do not route on a client-supplied tenant header because
+  an authenticated consumer could spoof another tenant's value.
 - **Variable names in proxy-rewrite** — `$consumer_name` and `$consumer_group_id`
   are APISIX built-in variables, available only after authentication runs.
   Ensure the auth plugin (key-auth, jwt-auth, etc.) has higher priority than

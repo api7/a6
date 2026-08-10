@@ -36,14 +36,39 @@ func TestSkillRecipeMultiTenant(t *testing.T) {
 		"uri": "/skill-multi-tenant",
 		"plugins": {
 			"key-auth": {},
-			"consumer-restriction": {
-				"whitelist": ["skill-tenant-a", "skill-tenant-b"]
-			},
 			"limit-count": {
 				"count": 100,
 				"time_window": 86400,
 				"key_type": "var",
 				"key": "consumer_name"
+			},
+			"traffic-split": {
+				"rules": [
+					{
+						"match": [{"vars": [["consumer_name", "==", "skill-tenant-a"]]}],
+						"weighted_upstreams": [{
+							"upstream": {
+								"type": "roundrobin",
+								"pass_host": "rewrite",
+								"upstream_host": "skill-tenant-a.internal",
+								"nodes": {"127.0.0.1:8080": 1}
+							},
+							"weight": 1
+						}]
+					},
+					{
+						"match": [{"vars": [["consumer_name", "==", "skill-tenant-b"]]}],
+						"weighted_upstreams": [{
+							"upstream": {
+								"type": "roundrobin",
+								"pass_host": "rewrite",
+								"upstream_host": "skill-tenant-b.internal",
+								"nodes": {"127.0.0.1:8080": 1}
+							},
+							"weight": 1
+						}]
+					}
+				]
 			},
 			"proxy-rewrite": {
 				"uri": "/get"
@@ -57,16 +82,20 @@ func TestSkillRecipeMultiTenant(t *testing.T) {
 
 	stdout, _, err = runA6WithEnv(env, "route", "get", routeID, "--output", "json")
 	require.NoError(t, err)
-	assert.Contains(t, stdout, `"consumer-restriction"`)
+	assert.Contains(t, stdout, `"traffic-split"`)
 	assert.Contains(t, stdout, `"limit-count"`)
 
-	status, _ := httpGetWithRetry(t, gatewayURL+"/skill-multi-tenant",
-		map[string]string{"apikey": "tenant-a-key"}, 200, 5*time.Second)
+	status, body := httpGetWithRetry(t, gatewayURL+"/skill-multi-tenant",
+		map[string]string{"apikey": "tenant-a-key", "X-Tenant-ID": "skill-tenant-b"}, 200, 5*time.Second)
 	assert.Equal(t, 200, status)
+	assert.Contains(t, body, "skill-tenant-a.internal")
+	assert.NotContains(t, body, "skill-tenant-b.internal")
 
-	status, _ = httpGetWithRetry(t, gatewayURL+"/skill-multi-tenant",
-		map[string]string{"apikey": "tenant-b-key"}, 200, 5*time.Second)
+	status, body = httpGetWithRetry(t, gatewayURL+"/skill-multi-tenant",
+		map[string]string{"apikey": "tenant-b-key", "X-Tenant-ID": "skill-tenant-a"}, 200, 5*time.Second)
 	assert.Equal(t, 200, status)
+	assert.Contains(t, body, "skill-tenant-b.internal")
+	assert.NotContains(t, body, "skill-tenant-a.internal")
 
 	status, _ = httpGetWithRetry(t, gatewayURL+"/skill-multi-tenant",
 		map[string]string{"apikey": "unknown-key"}, 401, 5*time.Second)
