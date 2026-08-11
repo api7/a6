@@ -3,8 +3,8 @@ name: a6-plugin-ai-proxy
 description: >-
   Skill for configuring the Apache APISIX ai-proxy plugin via the a6 CLI.
   Covers proxying requests to LLM providers (OpenAI, Azure OpenAI, DeepSeek,
-  Anthropic, Gemini, Vertex AI, and more), authentication per provider,
-  model configuration, streaming, logging, and load balancing with
+  Anthropic, Gemini, Vertex AI, Amazon Bedrock, and more), authentication per
+  provider, model configuration, streaming, logging, and load balancing with
   ai-proxy-multi.
 version: "1.0.0"
 author: Apache APISIX Contributors
@@ -23,14 +23,17 @@ metadata:
 
 ## Overview
 
-The `ai-proxy` plugin turns APISIX into an AI gateway. It proxies requests in
-OpenAI-compatible format to LLM providers, handling authentication, endpoint
-routing, and response streaming. Clients send a standard chat-completion
-request; the plugin translates and forwards it to the configured provider.
+The `ai-proxy` plugin turns APISIX into an AI gateway. Clients can send
+requests in supported protocols to APISIX instead of handling provider
+authentication and endpoint selection themselves. The plugin detects the
+client protocol, selects a compatible provider endpoint, forwards the native
+format or converts it when an adapter is available, and handles response
+streaming.
 
 ## When to Use
 
-- Proxy chat-completion or embedding requests to any supported LLM provider
+- Proxy Chat Completions, Responses API, Embeddings, Anthropic Messages, or
+  Bedrock Converse requests to a compatible provider
 - Centralize API keys at the gateway instead of distributing to clients
 - Add observability (token counts, latency) to LLM calls
 - Combine with `ai-prompt-template`, `ai-prompt-decorator`, or content
@@ -38,35 +41,36 @@ request; the plugin translates and forwards it to the configured provider.
 
 ## Supported Providers
 
-| Provider | Value | Default Endpoint |
-|----------|-------|------------------|
-| OpenAI | `openai` | `https://api.openai.com/v1/chat/completions` |
+| Provider | Value | Endpoint Behavior |
+|----------|-------|-------------------|
+| OpenAI | `openai` | Automatically selects `/v1/chat/completions`, `/v1/responses`, or `/v1/embeddings` on `https://api.openai.com` |
 | DeepSeek | `deepseek` | `https://api.deepseek.com/chat/completions` |
 | Azure OpenAI | `azure-openai` | Custom via `override.endpoint` |
-| Anthropic | `anthropic` | `https://api.anthropic.com/v1/chat/completions` |
+| Anthropic | `anthropic` | Automatically selects `/v1/chat/completions` or `/v1/messages` on `https://api.anthropic.com` |
 | AIMLAPI | `aimlapi` | `https://api.aimlapi.com/v1/chat/completions` |
 | OpenRouter | `openrouter` | `https://openrouter.ai/api/v1/chat/completions` |
 | Gemini | `gemini` | `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` |
 | Vertex AI | `vertex-ai` | `https://aiplatform.googleapis.com` |
+| Amazon Bedrock | `bedrock` | Region- and model-specific Bedrock Runtime endpoint; available from APISIX 3.17.0 |
 | OpenAI-Compatible | `openai-compatible` | Custom via `override.endpoint` |
 
 ## Plugin Configuration Reference
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `provider` | string | **Yes** | — | One of the 9 supported providers |
+| `provider` | string | **Yes** | — | One of the 10 supported providers |
 | `auth` | object | **Yes** | — | Authentication config (see below) |
 | `options` | object | No | — | Model and generation parameters |
 | `options.model` | string | No | — | Model name (provider-specific) |
 | `options.temperature` | number | No | — | Sampling temperature |
 | `options.top_p` | number | No | — | Nucleus sampling |
 | `options.max_tokens` | integer | No | — | Maximum tokens to generate |
-| `options.stream` | boolean | No | `false` | Enable SSE streaming |
-| `override` | object | No | — | Override default endpoint |
-| `override.endpoint` | string | No | — | Full URL for the provider API |
-| `provider_conf` | object | No | — | Provider-specific config (Vertex AI) |
-| `provider_conf.project_id` | string | No | — | GCP project ID (Vertex AI) |
-| `provider_conf.region` | string | No | — | GCP region (Vertex AI) |
+| `options.stream` | boolean | No | — | Override the outgoing `stream` field; for Bedrock Converse, set `stream: true` in the client request instead |
+| `override` | object | No | — | Provider endpoint and request-body override settings |
+| `override.endpoint` | string | No | — | Provider scheme and host, or a full URL including the path and query |
+| `provider_conf` | object | No | — | Provider-specific config for Vertex AI or Amazon Bedrock |
+| `provider_conf.project_id` | string | No | — | GCP project ID for Vertex AI; required with `region` unless `override.endpoint` is configured |
+| `provider_conf.region` | string | No | — | GCP region for Vertex AI; required AWS region for Amazon Bedrock |
 | `logging` | object | No | — | Logging options |
 | `logging.summaries` | boolean | No | `false` | Log model, duration, tokens |
 | `logging.payloads` | boolean | No | `false` | Log request/response bodies |
@@ -78,7 +82,7 @@ request; the plugin translates and forwards it to the configured provider.
 
 ## Authentication by Provider
 
-### OpenAI / DeepSeek / Anthropic / AIMLAPI / OpenRouter
+### OpenAI / DeepSeek / AIMLAPI / OpenRouter
 
 ```json
 {
@@ -89,6 +93,21 @@ request; the plugin translates and forwards it to the configured provider.
   }
 }
 ```
+
+### Anthropic
+
+```json
+{
+  "auth": {
+    "header": {
+      "x-api-key": "your-anthropic-api-key"
+    }
+  }
+}
+```
+
+Native Anthropic Messages requests also require an `anthropic-version` header.
+Configure it in `auth.header` or require clients to send it.
 
 ### Azure OpenAI
 
@@ -137,6 +156,28 @@ request; the plugin translates and forwards it to the configured provider.
 
 The `service_account_json` can also be set via the `GCP_SERVICE_ACCOUNT`
 environment variable.
+
+### Amazon Bedrock
+
+```json
+{
+  "auth": {
+    "aws": {
+      "access_key_id": "your-access-key-id",
+      "secret_access_key": "your-secret-access-key",
+      "session_token": "your-session-token"
+    }
+  },
+  "provider_conf": {
+    "region": "us-east-1"
+  },
+  "options": {
+    "model": "your-model-id"
+  }
+}
+```
+
+The session token is required when you use temporary AWS credentials.
 
 ### Custom OpenAI-Compatible API
 
