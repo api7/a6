@@ -39,6 +39,17 @@ streaming.
 - Combine with `ai-prompt-template`, `ai-prompt-decorator`, or content
   moderation plugins for a full AI gateway pipeline
 
+## Protocol Detection
+
+APISIX uses the request URI as part of protocol detection. Anthropic Messages
+requests must use a URI ending in `/v1/messages`, and Bedrock Converse requests
+must use a URI ending in `/converse`. Without these suffixes, a request body can
+match another protocol, such as OpenAI Chat.
+
+For Bedrock streaming, keep the client-facing URI ending in `/converse` and set
+`stream: true` in the request body. APISIX then selects the upstream
+`/model/{modelId}/converse-stream` endpoint.
+
 ## Supported Providers
 
 | Provider | Value | Endpoint Behavior |
@@ -65,7 +76,7 @@ streaming.
 | `options.temperature` | number | No | — | Sampling temperature |
 | `options.top_p` | number | No | — | Nucleus sampling |
 | `options.max_tokens` | integer | No | — | Maximum tokens to generate |
-| `options.stream` | boolean | No | — | Override the outgoing `stream` field; for Bedrock Converse, set `stream: true` in the client request instead |
+| `options.stream` | boolean | No | — | Override the outgoing `stream` field. For Bedrock Converse, `stream: true` on a `/converse` request selects `/model/{modelId}/converse-stream` and returns unmodified AWS EventStream binary frames with `Content-Type: application/vnd.amazon.eventstream`, not SSE; clients must parse EventStream responses. |
 | `override` | object | No | — | Provider endpoint and request-body override settings |
 | `override.endpoint` | string | No | — | Provider scheme and host, or a full URL including the path and query |
 | `provider_conf` | object | No | — | Provider-specific config for Vertex AI or Amazon Bedrock |
@@ -100,14 +111,15 @@ streaming.
 {
   "auth": {
     "header": {
-      "x-api-key": "your-anthropic-api-key"
+      "x-api-key": "your-anthropic-api-key",
+      "anthropic-version": "2023-06-01"
     }
   }
 }
 ```
 
-Native Anthropic Messages requests also require an `anthropic-version` header.
-Configure it in `auth.header` or require clients to send it.
+Native Anthropic Messages requests require an `anthropic-version` header.
+Configure it in `auth.header`, as shown, or require clients to send it.
 
 ### Azure OpenAI
 
