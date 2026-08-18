@@ -21,7 +21,6 @@ metadata:
     - a6 config validate
     - a6 debug logs
     - a6 debug trace
-    - a6 route list
     - a6 ssl create
     - a6 global-rule create
 ---
