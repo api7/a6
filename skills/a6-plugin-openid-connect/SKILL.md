@@ -1,10 +1,9 @@
 ---
 name: a6-plugin-openid-connect
 description: >-
-  Skill for configuring the Apache APISIX openid-connect plugin via the a6 CLI.
-  Covers OIDC authorization code flow, bearer token validation, token
-  introspection vs JWKS verification, session management, provider setup for
-  Keycloak/Auth0/Okta, redirect URIs, and common operational patterns.
+  Skill for configuring the APISIX openid-connect plugin via the a6 CLI.
+  Covers authorization-code and bearer flows, PAR, DPoP, and session
+  validation.
 version: "1.0.0"
 author: Apache APISIX Contributors
 license: Apache-2.0
@@ -26,6 +25,18 @@ identity providers (Keycloak, Auth0, Okta, etc.). It supports the full
 authorization code flow for browser-based applications, bearer token validation
 for API clients, and token introspection or local JWKS verification.
 
+From APISIX 3.18.0 the plugin also supports nested PAR and DPoP configuration,
+forwards the raw ID token when `set_raw_id_token_header` is enabled, fails closed
+when the trusted issuer cannot be determined, treats
+`claim_validator.audience.match_with_client_id` as requiring an audience claim,
+and enforces `required_scopes` on authorization-code sessions. For bearer JWT
+validation, configure `claim_validator.issuer.valid_issuers` when discovery can
+be unavailable.
+
+Field tables and a Keycloak PAR/DPoP walkthrough:
+https://docs.api7.ai/hub/openid-connect
+https://docs.api7.ai/apisix/how-to-guide/authentication/secure-oidc-with-par-and-dpop
+
 ## When to Use
 
 - Integrate with enterprise identity providers (Keycloak, Auth0, Okta, Azure AD)
@@ -40,7 +51,7 @@ for API clients, and token introspection or local JWKS verification.
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `client_id` | string | **Yes** | — | OAuth 2.0 client ID |
-| `client_secret` | string | **Yes** | — | OAuth 2.0 client secret (encrypted in etcd) |
+| `client_secret` | string | Conditional | — | OAuth 2.0 client secret (encrypted in etcd). Optional for local JWT verification, `private_key_jwt`, or a public-client PKCE flow |
 | `discovery` | string | **Yes** | — | OIDC well-known discovery URL |
 
 ### Authentication & Scopes
@@ -75,7 +86,8 @@ for API clients, and token introspection or local JWKS verification.
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `session.secret` | string | Yes* | — | 16+ char key for session encryption (*required for auth code flow) |
-| `session.cookie.lifetime` | integer | No | `3600` | Session cookie lifetime in seconds |
+| `session.absolute_timeout` | integer | No | — | Absolute session lifetime in seconds |
+| `session.cookie.lifetime` | integer | No | — | Deprecated alias for `session.absolute_timeout` |
 | `session.storage` | string | No | `"cookie"` | `"cookie"` or `"redis"` |
 
 ### Headers to Upstream
@@ -85,14 +97,27 @@ for API clients, and token introspection or local JWKS verification.
 | `set_access_token_header` | boolean | No | `true` | Set `X-Access-Token` header |
 | `access_token_in_authorization_header` | boolean | No | `false` | Set token in `Authorization` header |
 | `set_id_token_header` | boolean | No | `true` | Set `X-ID-Token` header |
+| `set_raw_id_token_header` | boolean | No | `false` | Set `X-Raw-ID-Token` with the unmodified ID token |
 | `set_userinfo_header` | boolean | No | `true` | Set `X-Userinfo` header |
 | `hide_credentials` | boolean | No | `false` | Remove auth headers before upstream |
+
+### PAR and DPoP (APISIX 3.18.0+)
+
+Configure these as nested objects. Flat keys such as `use_par` or `use_dpop` are
+rejected.
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `par.enabled` | boolean | No | `false` | Send the authorization request through PAR |
+| `dpop.enabled` | boolean | No | `false` | Bind token requests with a DPoP proof JWT |
+
+See the Plugin Hub page for endpoint auth, key material, and validation rules.
 
 ### Advanced
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `ssl_verify` | boolean | No | `false` | Verify IdP SSL certificates |
+| `ssl_verify` | boolean | No | `true` | Verify IdP SSL certificates |
 | `timeout` | integer | No | `3` | Request timeout to IdP in seconds |
 | `use_pkce` | boolean | No | `false` | Enable PKCE (RFC 7636) |
 | `renew_access_token_on_expiry` | boolean | No | `true` | Auto-refresh expiring tokens |
@@ -313,6 +338,8 @@ through without identity.
 | SSL errors to IdP | `ssl_verify: true` but certs invalid | Fix certs or set `ssl_verify: false` for testing |
 | Large cookie errors | Session too big for cookie | Switch to `session.storage: "redis"` |
 | Token not refreshing | `renew_access_token_on_expiry: false` | Set to `true` (default) |
+| `403` with `required_scopes` after login | Session scopes missing or unreadable (3.18.0+) | Confirm granted scopes on the access or ID token; `required_scopes` applies to authorization-code sessions |
+| Bearer JWT rejected while discovery is down | Issuer fail-closed (3.18.0+) | Set `claim_validator.issuer.valid_issuers` |
 | NGINX buffer errors | Session cookie too large | Increase `proxy_buffers` / `proxy_buffer_size` in NGINX config |
 
 ## Config Sync Example

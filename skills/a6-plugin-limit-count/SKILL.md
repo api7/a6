@@ -1,11 +1,8 @@
 ---
 name: a6-plugin-limit-count
 description: >-
-  Skill for configuring the Apache APISIX limit-count plugin via the a6 CLI.
-  Covers fixed-window rate limiting, count/time_window configuration, key types,
-  Redis and Redis-cluster policies for distributed limiting, group-based shared
-  quotas, consumer-level vs route-level limiting, response headers, and common
-  operational patterns.
+  Skill for configuring the APISIX limit-count plugin via the a6 CLI. Covers
+  fixed and sliding windows, Redis Sentinel, delayed sync, and shared quotas.
 version: "1.0.0"
 author: Apache APISIX Contributors
 license: Apache-2.0
@@ -24,11 +21,16 @@ metadata:
 
 ## Overview
 
-The `limit-count` plugin rate-limits requests using a fixed-window counter
-algorithm. Define a maximum number of requests (`count`) within a time interval
-(`time_window`). Supports per-IP, per-consumer, per-header, or custom variable
-keys. For distributed APISIX deployments, use Redis or Redis-cluster as the
-shared counter backend.
+The `limit-count` plugin rate-limits requests using a counter in a time window.
+Define a maximum number of requests (`count`) within an interval (`time_window`).
+The default `window_type` is `fixed`. Set `window_type: sliding` to smooth bursts
+at window boundaries. Supports per-IP, per-consumer, per-header, or custom
+variable keys. For distributed APISIX deployments, share counters through Redis,
+Redis Cluster, or Redis Sentinel (`policy: redis-sentinel`).
+
+Redis Sentinel, sliding windows, and delayed Redis synchronization (`sync_interval`)
+are available from APISIX 3.18.0. Field tables and examples:
+https://docs.api7.ai/hub/limit-count
 
 ## When to Use
 
@@ -50,7 +52,9 @@ shared counter backend.
 | `rejected_code` | integer | No | `503` | HTTP status on rejection (200–599) |
 | `rejected_msg` | string | No | — | Custom rejection message body |
 | `group` | string | No | — | Share counters across routes with same group ID |
-| `policy` | string | No | `"local"` | Storage: `"local"`, `"redis"`, or `"redis-cluster"` |
+| `policy` | string | No | `"local"` | Storage: `"local"`, `"redis"`, `"redis-cluster"`, or `"redis-sentinel"` |
+| `window_type` | string | No | `"fixed"` | `"fixed"` or `"sliding"` (APISIX 3.18.0+) |
+| `sync_interval` | number | No | `-1` | Redis sync interval in seconds. `-1` syncs every request. Min `0.1` when enabled; must be smaller than a numeric `time_window` |
 | `show_limit_quota_header` | boolean | No | `true` | Include X-RateLimit-* headers in responses |
 | `allow_degradation` | boolean | No | `false` | Allow requests when plugin fails |
 
@@ -77,6 +81,22 @@ shared counter backend.
 | `redis_password` | string | No | — | Cluster password |
 | `redis_timeout` | integer | No | `1000` | Timeout in milliseconds |
 | `redis_cluster_ssl` | boolean | No | `false` | Enable TLS |
+
+### Redis Sentinel Fields (when `policy: "redis-sentinel"`, APISIX 3.18.0+)
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `redis_sentinels` | array[object] | **Yes** | — | Sentinel nodes: `{ "host": "...", "port": 26379 }` |
+| `redis_master_name` | string | **Yes** | — | Sentinel-monitored master name |
+| `redis_role` | string | No | `"master"` | `"master"` or `"slave"` |
+| `redis_username` | string | No | — | Redis ACL username |
+| `redis_password` | string | No | — | Redis password |
+| `redis_database` | integer | No | `0` | Redis database index |
+| `sentinel_username` | string | No | — | Redis Sentinel ACL username |
+| `sentinel_password` | string | No | — | Redis Sentinel password |
+| `redis_connect_timeout` | integer | No | `1000` | Connection timeout in milliseconds |
+| `redis_read_timeout` | integer | No | `1000` | Read timeout in milliseconds |
+| `redis_keepalive_timeout` | integer | No | `60000` | Keepalive timeout in milliseconds |
 
 ## Key Types
 
@@ -234,6 +254,51 @@ All routes with `"group": "api-v1"` share the same 1000 req/hour counter.
 
 Use Redis when running multiple APISIX nodes to share counters.
 
+### Redis Sentinel
+
+```json
+{
+  "plugins": {
+    "limit-count": {
+      "count": 1000,
+      "time_window": 60,
+      "key": "remote_addr",
+      "policy": "redis-sentinel",
+      "redis_master_name": "mymaster",
+      "redis_sentinels": [
+        { "host": "192.168.1.10", "port": 26379 },
+        { "host": "192.168.1.11", "port": 26379 }
+      ],
+      "rejected_code": 429
+    }
+  }
+}
+```
+
+### Sliding window and delayed Redis sync
+
+```json
+{
+  "plugins": {
+    "limit-count": {
+      "count": 1000,
+      "time_window": 60,
+      "window_type": "sliding",
+      "policy": "redis",
+      "redis_host": "redis.example.com",
+      "sync_interval": 1,
+      "rejected_code": 429
+    }
+  }
+}
+```
+
+`sync_interval` also works with `redis-cluster` and `redis-sentinel`. A numeric
+`time_window` must be greater than `sync_interval`, or APISIX rejects the plugin
+configuration. If a variable-based `time_window` resolves to a value less than
+or equal to `sync_interval` at request time, APISIX falls back to per-request
+synchronization.
+
 ### Redis cluster
 
 ```json
@@ -261,20 +326,20 @@ Use Redis when running multiple APISIX nodes to share counters.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Limits not shared across APISIX nodes | Using `policy: "local"` (default) | Switch to `"redis"` or `"redis-cluster"` |
+| Limits not shared across APISIX nodes | Using `policy: "local"` (default) | Switch to `"redis"`, `"redis-cluster"`, or `"redis-sentinel"` |
 | Group config rejected | Mismatched configs in same group | Ensure all routes in group have identical limit-count config |
-| Unexpected counter reset | Fixed-window boundary | Normal behavior — counters reset at fixed intervals |
+| Unexpected counter reset | Fixed-window boundary | Normal for `window_type: fixed`; use `"sliding"` to smooth bursts |
 | Key empty, all clients share one counter | Variable doesn't exist | Verify key variable name; falls back to `remote_addr` |
 | Rate limit headers missing | `show_limit_quota_header: false` | Set to `true` (default) |
 | 503 instead of 429 | Default `rejected_code` is 503 | Set `rejected_code: 429` explicitly |
 
 ## Fixed-Window Algorithm Note
 
-`limit-count` uses a fixed-window algorithm. Counters reset at exact intervals.
-This means a burst at the boundary of two windows can temporarily exceed the
-intended rate (e.g., 100 req/min allows 200 requests if 100 come at t=59s and
-100 at t=61s). For smoother rate limiting, combine with `limit-req` (leaky
-bucket).
+`limit-count` defaults to a fixed-window algorithm. Counters reset at exact
+intervals, so a burst at the boundary of two windows can temporarily exceed the
+intended rate (for example, 100 req/min allows 200 requests if 100 come at
+t=59s and 100 at t=61s). Set `window_type: sliding` to weight the previous
+window, or combine with `limit-req` (leaky bucket).
 
 ## Config Sync Example
 
