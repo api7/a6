@@ -5,7 +5,7 @@ description: >-
   Covers enabling Prometheus metrics export on routes and globally, exposed
   metrics (HTTP status, latency, bandwidth, upstream health, LLM tokens),
   custom labels, histogram buckets, and Grafana dashboard integration.
-version: "1.1.0"
+version: "1.0.0"
 author: Apache APISIX Contributors
 license: Apache-2.0
 metadata:

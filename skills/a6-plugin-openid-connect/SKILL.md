@@ -6,7 +6,7 @@ description: >-
   introspection vs JWKS verification, session management, Pushed Authorization
   Requests (PAR), DPoP, provider setup for Keycloak/Auth0/Okta, redirect URIs,
   and common operational patterns.
-version: "1.1.0"
+version: "1.0.0"
 author: Apache APISIX Contributors
 license: Apache-2.0
 metadata:

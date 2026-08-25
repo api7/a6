@@ -6,7 +6,7 @@ description: >-
   including streaming) and ai-aliyun-content-moderation (Aliyun, request +
   response with streaming), role selection, fail_mode, deny_code, and pairing
   with ai-proxy.
-version: "1.1.0"
+version: "1.0.0"
 author: Apache APISIX Contributors
 license: Apache-2.0
 metadata:

@@ -6,7 +6,7 @@ description: >-
   local, Redis, Redis-cluster, and Redis Sentinel policies, delayed Redis
   synchronization, group-based shared quotas, consumer-level vs route-level
   limiting, response headers, and common operational patterns.
-version: "1.1.0"
+version: "1.0.0"
 author: Apache APISIX Contributors
 license: Apache-2.0
 metadata:
