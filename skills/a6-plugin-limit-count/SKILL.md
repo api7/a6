@@ -1,11 +1,8 @@
 ---
 name: a6-plugin-limit-count
 description: >-
-  Skill for configuring the Apache APISIX limit-count plugin via the a6 CLI.
-  Covers fixed and sliding windows, count/time_window configuration, key types,
-  local, Redis, Redis-cluster, and Redis Sentinel policies, delayed Redis
-  synchronization, group-based shared quotas, consumer-level vs route-level
-  limiting, response headers, and common operational patterns.
+  Skill for configuring the APISIX limit-count plugin via the a6 CLI. Covers
+  fixed and sliding windows, Redis Sentinel, delayed sync, and shared quotas.
 version: "1.0.0"
 author: Apache APISIX Contributors
 license: Apache-2.0

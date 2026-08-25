@@ -1,10 +1,8 @@
 ---
 name: a6-plugin-prometheus
 description: >-
-  Skill for configuring the Apache APISIX prometheus plugin via the a6 CLI.
-  Covers enabling Prometheus metrics export on routes and globally, exposed
-  metrics (HTTP status, latency, bandwidth, upstream health, LLM tokens),
-  custom labels, histogram buckets, and Grafana dashboard integration.
+  Skill for configuring APISIX prometheus via the a6 CLI. Covers HTTP, LLM,
+  and AI cache metrics, latency type labels, and Grafana dashboards.
 version: "1.0.0"
 author: Apache APISIX Contributors
 license: Apache-2.0

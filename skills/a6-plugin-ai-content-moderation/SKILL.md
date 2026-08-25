@@ -1,11 +1,9 @@
 ---
 name: a6-plugin-ai-content-moderation
 description: >-
-  Skill for configuring APISIX AI content moderation plugins via the a6 CLI.
-  Covers ai-aws-content-moderation (AWS Comprehend, request and response,
-  including streaming) and ai-aliyun-content-moderation (Aliyun, request +
-  response with streaming), role selection, fail_mode, deny_code, and pairing
-  with ai-proxy.
+  Skill for configuring APISIX AWS and Aliyun AI content moderation via the
+  a6 CLI. Covers request and response checks, streaming, deny_code, and
+  ai-proxy.
 version: "1.0.0"
 author: Apache APISIX Contributors
 license: Apache-2.0

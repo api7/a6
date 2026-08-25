@@ -1,11 +1,9 @@
 ---
 name: a6-plugin-openid-connect
 description: >-
-  Skill for configuring the Apache APISIX openid-connect plugin via the a6 CLI.
-  Covers OIDC authorization code flow, bearer token validation, token
-  introspection vs JWKS verification, session management, Pushed Authorization
-  Requests (PAR), DPoP, provider setup for Keycloak/Auth0/Okta, redirect URIs,
-  and common operational patterns.
+  Skill for configuring the APISIX openid-connect plugin via the a6 CLI.
+  Covers authorization-code and bearer flows, PAR, DPoP, and session
+  validation.
 version: "1.0.0"
 author: Apache APISIX Contributors
 license: Apache-2.0
