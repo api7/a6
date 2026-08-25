@@ -5,7 +5,7 @@ description: >-
   Covers enabling Prometheus metrics export on routes and globally, exposed
   metrics (HTTP status, latency, bandwidth, upstream health, LLM tokens),
   custom labels, histogram buckets, and Grafana dashboard integration.
-version: "1.0.0"
+version: "1.1.0"
 author: Apache APISIX Contributors
 license: Apache-2.0
 metadata:
@@ -24,8 +24,9 @@ metadata:
 
 The `prometheus` plugin exposes APISIX metrics in Prometheus text format. It
 tracks HTTP status codes, request latency, bandwidth, upstream health, etcd
-status, and (since v3.15) LLM token usage. Prometheus scrapes the metrics
-endpoint; Grafana visualizes them.
+status, stream sessions, LLM token usage, and AI cache hits. Prometheus scrapes
+the metrics endpoint; Grafana visualizes them. Field tables:
+https://docs.api7.ai/hub/prometheus
 
 ## When to Use
 
@@ -61,15 +62,33 @@ The plugin has minimal per-route config. Most configuration is global via
 | `apisix_shared_dict_capacity_bytes` | gauge | Shared memory capacity |
 | `apisix_shared_dict_free_space_bytes` | gauge | Shared memory free space |
 | `apisix_stream_connection_total` | counter | TCP/UDP stream connections |
+| `apisix_stream_active_connections` | gauge | Active stream connections (APISIX-Runtime, 3.18.0+) |
+| `apisix_stream_status` | counter | Completed stream sessions by status (3.18.0+) |
+| `apisix_stream_bandwidth` | counter | Stream bytes by direction (APISIX-Runtime, 3.18.0+) |
 
 ### LLM/AI Metrics (v3.15+)
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `apisix_llm_latency` | histogram | LLM request latency |
+| `apisix_llm_latency` | histogram | LLM request latency. From APISIX 3.18.0 the `type` label is `total` (full response) or `ttft` (time to first token on streaming). Queries that omit `type` match both; use `type="total"` for the previous total-latency meaning. Each streaming request records one `total` and one `ttft` sample |
 | `apisix_llm_prompt_tokens` | counter | Prompt tokens consumed |
 | `apisix_llm_completion_tokens` | counter | Completion tokens consumed |
 | `apisix_llm_active_connections` | gauge | Active LLM connections |
+| `apisix_llm_prompt_tokens_dist` | histogram | Prompt-token distribution (3.18.0+) |
+| `apisix_llm_completion_tokens_dist` | histogram | Completion-token distribution (3.18.0+) |
+
+### AI Cache Metrics (3.18.0+)
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `apisix_ai_cache_hits_total` | counter | Cache hits by exact or semantic `layer` |
+| `apisix_ai_cache_misses_total` | counter | Cache misses |
+| `apisix_ai_cache_bypasses_total` | counter | Lookups skipped |
+| `apisix_ai_cache_embedding_latency` | histogram | Semantic-cache embedding latency |
+
+To drop high-cardinality labels, set `disabled_labels` in prometheus plugin
+metadata. Do not disable structural labels such as `code` on HTTP status, `type`
+on latency/bandwidth/LLM latency, or `layer` on cache hits.
 
 ### Latency Types
 
@@ -132,8 +151,14 @@ scrape_configs:
 
 ### 5. Import Grafana dashboard
 
-Import dashboard ID **11719** from grafana.com for a pre-built APISIX
-monitoring dashboard.
+Download the dashboard JSON that matches the APISIX version, for example:
+
+```
+https://raw.githubusercontent.com/apache/apisix/3.18.0/docs/assets/other/json/apisix-grafana-dashboard.json
+```
+
+Grafana.com dashboard 11719 targets APISIX 2.10.x and legacy panels. Do not use
+it for current metrics.
 
 ## Common Patterns
 
@@ -208,4 +233,5 @@ routes:
 | Metrics port unreachable | `enable_export_server: false` | Set to `true` or use `public-api` plugin |
 | Missing route labels | `prefer_name: false` and route has no name | Set `prefer_name: true` and name your routes |
 | No LLM metrics | APISIX < 3.15 or ai-proxy not configured | Upgrade APISIX; ensure ai-proxy is on the route |
-| High cardinality | Too many extra labels | Reduce `extra_labels`; avoid high-cardinality variables |
+| High cardinality | Too many extra labels | Reduce `extra_labels`; use `disabled_labels` in plugin metadata; avoid high-cardinality variables |
+| LLM latency looks doubled / wrong p99 | Selector omits `type` after 3.18.0 | Filter `apisix_llm_latency{type="total"}` |
