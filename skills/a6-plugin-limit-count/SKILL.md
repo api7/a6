@@ -92,6 +92,11 @@ https://docs.api7.ai/hub/limit-count
 | `redis_username` | string | No | — | Redis ACL username |
 | `redis_password` | string | No | — | Redis password |
 | `redis_database` | integer | No | `0` | Redis database index |
+| `sentinel_username` | string | No | — | Redis Sentinel ACL username |
+| `sentinel_password` | string | No | — | Redis Sentinel password |
+| `redis_connect_timeout` | integer | No | `1000` | Connection timeout in milliseconds |
+| `redis_read_timeout` | integer | No | `1000` | Read timeout in milliseconds |
+| `redis_keepalive_timeout` | integer | No | `60000` | Keepalive timeout in milliseconds |
 
 ## Key Types
 
@@ -288,9 +293,11 @@ Use Redis when running multiple APISIX nodes to share counters.
 }
 ```
 
-`sync_interval` also works with `redis-cluster` and `redis-sentinel`. The gateway
-falls back to per-request sync when `time_window` is less than or equal to
-`sync_interval`.
+`sync_interval` also works with `redis-cluster` and `redis-sentinel`. A numeric
+`time_window` must be greater than `sync_interval`, or APISIX rejects the plugin
+configuration. If a variable-based `time_window` resolves to a value less than
+or equal to `sync_interval` at request time, APISIX falls back to per-request
+synchronization.
 
 ### Redis cluster
 

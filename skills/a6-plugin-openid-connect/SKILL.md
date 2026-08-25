@@ -29,8 +29,9 @@ From APISIX 3.18.0 the plugin also supports nested PAR and DPoP configuration,
 forwards the raw ID token when `set_raw_id_token_header` is enabled, fails closed
 when the trusted issuer cannot be determined, treats
 `claim_validator.audience.match_with_client_id` as requiring an audience claim,
-and enforces `required_scopes` on authorization-code sessions. Configure
-`claim_validator.issuer.valid_issuers` when discovery can be unavailable.
+and enforces `required_scopes` on authorization-code sessions. For bearer JWT
+validation, configure `claim_validator.issuer.valid_issuers` when discovery can
+be unavailable.
 
 Field tables and a Keycloak PAR/DPoP walkthrough:
 https://docs.api7.ai/hub/openid-connect
@@ -50,7 +51,7 @@ https://docs.api7.ai/apisix/how-to-guide/authentication/secure-oidc-with-par-and
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `client_id` | string | **Yes** | — | OAuth 2.0 client ID |
-| `client_secret` | string | **Yes** | — | OAuth 2.0 client secret (encrypted in etcd) |
+| `client_secret` | string | Conditional | — | OAuth 2.0 client secret (encrypted in etcd). Optional for local JWT verification, `private_key_jwt`, or a public-client PKCE flow |
 | `discovery` | string | **Yes** | — | OIDC well-known discovery URL |
 
 ### Authentication & Scopes
@@ -85,7 +86,8 @@ https://docs.api7.ai/apisix/how-to-guide/authentication/secure-oidc-with-par-and
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `session.secret` | string | Yes* | — | 16+ char key for session encryption (*required for auth code flow) |
-| `session.cookie.lifetime` | integer | No | `3600` | Session cookie lifetime in seconds |
+| `session.absolute_timeout` | integer | No | — | Absolute session lifetime in seconds |
+| `session.cookie.lifetime` | integer | No | — | Deprecated alias for `session.absolute_timeout` |
 | `session.storage` | string | No | `"cookie"` | `"cookie"` or `"redis"` |
 
 ### Headers to Upstream
@@ -115,7 +117,7 @@ See the Plugin Hub page for endpoint auth, key material, and validation rules.
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `ssl_verify` | boolean | No | `false` | Verify IdP SSL certificates |
+| `ssl_verify` | boolean | No | `true` | Verify IdP SSL certificates |
 | `timeout` | integer | No | `3` | Request timeout to IdP in seconds |
 | `use_pkce` | boolean | No | `false` | Enable PKCE (RFC 7636) |
 | `renew_access_token_on_expiry` | boolean | No | `true` | Auto-refresh expiring tokens |

@@ -41,7 +41,8 @@ https://docs.api7.ai/hub/ai-aliyun-content-moderation.
 ## When to Use
 
 - Block toxic, hateful, or sexual content before it reaches the LLM
-- Filter harmful LLM responses before they reach clients
+- Moderate harmful LLM responses. Non-streaming responses can be denied before
+  delivery; streaming checks cannot retract chunks already sent
 - Enforce content policies with configurable thresholds
 - Comply with content safety regulations
 
@@ -63,7 +64,8 @@ They still block a flagged request before the upstream LLM is called.
 
 ## Plugin 1: ai-aws-content-moderation
 
-Uses the AWS Comprehend `detectToxicContent` API to score request content.
+Uses the AWS Comprehend `DetectToxicContent` API to score request and response
+content.
 
 ### Configuration Reference
 
@@ -78,7 +80,11 @@ Uses the AWS Comprehend `detectToxicContent` API to score request content.
 | `check_response` | boolean | No | `false` | Enable response moderation |
 | `request_check_roles` | array | No | `user`, `tool`, `system`, `assistant` | Roles to moderate on the request |
 | `request_check_mode` | string | No | `all` | `all` or `last` (latest consecutive block). `system` is always checked when selected |
+| `request_check_length_limit` | integer | No | `1000` | Maximum bytes per Comprehend request text segment |
+| `response_check_length_limit` | integer | No | `1000` | Maximum bytes per Comprehend response text segment |
 | `stream_check_mode` | string | No | `final_packet` | `realtime` or `final_packet` when `check_response` is true |
+| `stream_check_cache_size` | integer | No | `128` | Maximum characters per moderation batch in `realtime` mode |
+| `stream_check_interval` | number | No | `3` | Seconds between moderation batches in `realtime` mode |
 | `fail_mode` | string | No | `skip` | `skip`, `warn`, or `error` for non-AI / unrecognized traffic |
 | `deny_code` | number | No | `200` | HTTP status for a denied request before headers are sent |
 | `deny_message` | string | No | — | Custom denial message |
@@ -211,8 +217,8 @@ Setting `risk_level_bar: "low"` blocks everything rated `low` or above.
 
 | Mode | Behavior |
 |------|----------|
-| `final_packet` | Buffers entire response, checks at end |
-| `realtime` | Checks content in batches during streaming, can interrupt mid-response |
+| `final_packet` | Checks the assembled response at the end and annotates the final stream packet with `risk_level`; it cannot retract earlier chunks |
+| `realtime` | Checks content in batches during streaming and can replace the remainder of the stream after a violation; it cannot retract earlier chunks |
 
 ### Step-by-Step: Aliyun Request + Response Moderation
 
@@ -371,4 +377,4 @@ routes:
 | Aliyun response moderation inactive | `check_response` defaults to `false` | Explicitly set `check_response: true` |
 | "Specified signature is not matched" | Wrong Aliyun credentials | Verify `access_key_id` and `access_key_secret` |
 | High latency | Double moderation (both plugins) | Use one moderation provider per route, not both |
-| Streaming interrupted mid-response | Aliyun realtime mode detected violation | Expected behavior; adjust `risk_level_bar` or use `final_packet` mode |
+| Streaming interrupted mid-response | A moderation plugin in `realtime` mode detected a violation | Expected behavior; adjust the moderation threshold or use `final_packet` mode |
