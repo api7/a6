@@ -1,175 +1,56 @@
 # AI Agent Skills
 
-This document describes the skill system for the a6 CLI. Skills are structured knowledge files that enable AI coding agents to work effectively with APISIX through the a6 CLI.
+The `a6` agent skill teaches AI coding agents (Claude Code, Cursor, Codex,
+GitHub Copilot, Windsurf, OpenCode and others) how to configure and operate
+Apache APISIX through the a6 CLI: routes, services, upstreams, consumers,
+SSL, 29 plugins, 8 operational recipes, and developer/operator personas.
 
-## Overview
+## Where it lives
 
-Skills are `SKILL.md` files stored in the `skills/` directory. Each skill provides domain-specific instructions, command patterns, and decision guidance for AI agents. The supported installation examples cover Claude Code, Codex, Cursor, and GitHub Copilot.
+The skill content is maintained in the dedicated
+[api7/agent-skills](https://github.com/api7/agent-skills) repository and
+published at [skills.sh/api7/agent-skills/a6](https://skills.sh/api7/agent-skills/a6).
+It is no longer stored in this repository.
 
-Start with one task-specific skill. Add another only when the task clearly spans
-multiple workflows. Do not install the full collection by default: overlapping
-persona, recipe, and plugin guidance can make skill routing and updates harder
-to review.
+`skills/a6/SKILL.md` is a short router; detailed guidance lives under
+`skills/a6/references/` (`shared.md`, `plugins/`, `recipes/`, `personas/`) and
+is loaded by the agent only when a task needs it.
 
-## Install a Skill
-
-Preview the available skills, then copy one skill into the current project:
-
-```bash
-npx skills add api7/a6 --list
-npx skills add api7/a6 --skill a6-plugin-key-auth --agent codex --copy
-```
-
-Replace `codex` with `claude-code`, `cursor`, or `github-copilot`. Review the
-selected `SKILL.md` before use. Installation copies instructions only; it does
-not install `a6`, connect to APISIX, or run gateway commands.
-
-Use a non-production context for a first run. Ask the agent to inspect current
-resources, propose an exact change, wait for approval, apply only the approved
-change, verify the result, and retain a rollback path. Never put an Admin API
-key in a prompt or committed file.
-
-## Directory Structure
-
-```
-skills/
-├── a6-shared/SKILL.md              # Core a6 conventions (shared skill)
-├── a6-plugin-key-auth/SKILL.md     # key-auth plugin skill
-├── a6-plugin-jwt-auth/SKILL.md     # jwt-auth plugin skill
-├── a6-recipe-blue-green/SKILL.md   # Blue-green deployment recipe
-├── a6-persona-operator/SKILL.md    # Platform operator persona
-└── ...
-```
-
-Each skill lives in its own directory: `skills/<skill-name>/SKILL.md`.
-
-## Skill Taxonomy
-
-Skills follow a naming convention with four types:
-
-| Prefix | Type | Description | Example |
-|--------|------|-------------|---------|
-| `a6-shared` | Shared | Core project conventions and patterns | `a6-shared` |
-| `a6-plugin-*` | Plugin | One APISIX plugin — config, examples, gotchas | `a6-plugin-key-auth` |
-| `a6-recipe-*` | Recipe | Multi-step operational task | `a6-recipe-blue-green` |
-| `a6-persona-*` | Persona | Role-specific workflow guidance | `a6-persona-operator` |
-
-### Naming Rules
-
-- **Format**: kebab-case
-- **Pattern**: `^[a-z0-9]+(-[a-z0-9]+)*$`
-- **Directory name must match the `name` field in frontmatter**
-
-## SKILL.md Format
-
-Every skill file has two parts: YAML frontmatter and Markdown body.
-
-### Frontmatter (Required)
-
-```yaml
----
-name: a6-plugin-key-auth
-description: >-
-  Skill for configuring key-auth plugin on APISIX routes and consumers
-  using the a6 CLI. Covers API key creation, consumer binding, and
-  key lookup configuration.
-version: "1.0.0"
-author: Apache APISIX Contributors
-license: Apache-2.0
-metadata:
-  category: plugin
-  apisix_version: ">=3.0.0"
-  plugin_name: key-auth
-  a6_commands:
-    - a6 route create
-    - a6 consumer create
-    - a6 plugin get key-auth
----
-```
-
-**Required fields:**
-
-| Field | Description |
-|-------|-------------|
-| `name` | Skill identifier. Must match directory name. Kebab-case. |
-| `description` | Multi-line description of what this skill covers. |
-
-**Recommended fields:**
-
-| Field | Description |
-|-------|-------------|
-| `version` | Semantic version of the skill content. |
-| `author` | Who authored the skill. |
-| `license` | License identifier (e.g., `Apache-2.0`). |
-| `metadata` | Structured metadata for categorization and filtering. |
-
-### Body (Markdown)
-
-The body follows the skill type:
-
-**Plugin skills** typically include:
-- What the plugin does (one paragraph)
-- When to use it (bullet list of scenarios)
-- Configuration reference (key fields, types, defaults)
-- Step-by-step: enable on a route
-- Step-by-step: configure with consumers
-- Common patterns and variations
-- Troubleshooting / common mistakes
-
-**Recipe skills** typically include:
-- Goal description
-- Prerequisites
-- Step-by-step instructions with a6 commands
-- Verification steps
-- Rollback procedure
-
-**Persona skills** typically include:
-- Role description and responsibilities
-- Common workflows
-- Decision trees
-- Which other skills to load for each task
-
-## CI Validation
-
-Every PR that modifies `skills/` runs metadata validation and CLI-example
-tests. The checks cover:
-
-1. Every `skills/*/SKILL.md` has valid YAML frontmatter
-2. Required fields `name` and `description` are present
-3. `name` matches the directory name
-4. `name` follows kebab-case pattern
-5. `description` is non-empty
-6. Commands used in shell examples exist in the current a6 CLI
-7. Flags used in shell examples are supported by that command or globally
-8. Literal output formats and positional argument counts match the command
-
-Run locally:
+## Install
 
 ```bash
-make validate-skills
-make test-skills
+# install the a6 skill into the current project
+npx skills add api7/agent-skills --skill a6
+
+# target a specific agent, e.g. claude-code, cursor, codex, github-copilot
+npx skills add api7/agent-skills --skill a6 -a claude-code
+
+# install globally (for every project) instead of into the current one
+npx skills add api7/agent-skills --skill a6 -g
 ```
 
-## Adding a New Skill
+Update later with `npx skills update`. Without Node, `install.sh` in this
+repository copies the skill into a directory of your choice
+(default `~/.claude/skills/a6`).
 
-1. Choose the skill type and name following the [taxonomy](#skill-taxonomy)
-2. Create the directory: `mkdir skills/<skill-name>`
-3. Create `skills/<skill-name>/SKILL.md` with frontmatter and body
-4. Run validation: `make validate-skills test-skills`
-5. Update this document if adding a new skill type or category
+Installing copies instructions only. It does not install `a6`, connect to
+APISIX, or run any command; you still need `a6` on your `PATH` and a
+reachable Admin API.
 
-## Skill Roadmap
+## Operating discipline
 
-| PR | Skills | Description |
-|----|--------|-------------|
-| PR-28 | 1 | Infrastructure + `a6-shared` |
-| PR-29 | 5 | Authentication plugins (key-auth, jwt-auth, basic-auth, hmac-auth, openid-connect) |
-| PR-30 | 4 | Security + rate limiting (ip-restriction, cors, limit-count, limit-req) |
-| PR-31 | 5 | Traffic + transformation (proxy-rewrite, response-rewrite, traffic-split, redirect, grpc-transcode) |
-| PR-32 | 5 | Operational recipes (blue-green, canary, circuit-breaker, health-check, mtls) |
-| PR-33 | 4 | AI Gateway (ai-proxy, ai-prompt-template, ai-prompt-decorator, ai-content-moderation) |
-| PR-34 | 6 | Observability (prometheus, skywalking, zipkin, http-logger, kafka-logger, datadog) |
-| PR-35 | 5 | Advanced plugins (serverless, ext-plugin, fault-injection, consumer-restriction, wolf-rbac) |
-| PR-36 | 5 | Advanced recipes + personas |
+Use a non-production APISIX instance for a first run. Ask the agent to
+inspect the current resources, propose an exact change, wait for approval,
+apply only the approved change, verify the result, and keep a rollback path.
+Never put an Admin API key in a prompt or a committed file; configure it
+through `a6 context` or the `A6_API_KEY` environment variable instead.
 
-**Total**: 40 skills across 9 PRs.
+## Contributing
+
+Changes to skill content (new plugins, recipes, wording fixes) go to
+[api7/agent-skills](https://github.com/api7/agent-skills). This repository
+only validates that the shell examples in the skill use commands and flags
+that exist in the current `a6` CLI: `make test-skills` runs `test/skills`
+against a checkout of api7/agent-skills next to this repository, or against
+the directory given by `SKILLS_DIR` (CI checks out the repository and sets
+`SKILLS_DIR` automatically).

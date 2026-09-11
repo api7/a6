@@ -23,7 +23,7 @@ List of project documents and their specific purpose:
 | `docs/coding-standards.md` | Go style, naming, formatting conventions | Before writing code |
 | `docs/testing-strategy.md` | Test patterns, mocking, fixtures, e2e testing | Before writing tests |
 | `docs/documentation-maintenance.md` | Doc update rules | After any code change |
-| `docs/skills.md` | AI agent skill format, taxonomy, authoring guide | When adding or modifying skills |
+| `docs/skills.md` | Where the a6 agent skill lives (api7/agent-skills), install, CI validation | When touching skill validation or install docs |
 | `docs/user-guide/getting-started.md` | Installation, first context, quick start | New users, onboarding |
 | `docs/user-guide/configuration.md` | Config file, env vars, override precedence | When working with config files / env vars |
 | `docs/user-guide/context.md` | `a6 context` command reference | When working with the context command |
@@ -67,12 +67,12 @@ a6/
 │   ├── smoke_test.go             # Smoke tests (APISIX reachable)
 │   ├── docker-compose.yml        # Local dev docker-compose
 │   └── apisix_conf/              # APISIX config files for testing
-├── skills/                        # AI agent skill files (SKILL.md)
-│   └── a6-shared/SKILL.md       # Core shared skill
+├── test/skills/                   # Validates api7/agent-skills examples against the CLI
 ├── scripts/                       # CI and utility scripts
-│   └── validate-skills.sh       # SKILL.md validation for CI
 └── Makefile                       # Build, test, lint, docker commands
 ```
+
+The AI agent skill (`a6`) lives in the [api7/agent-skills](https://github.com/api7/agent-skills) repository; `make test-skills` validates its shell examples against this CLI (see `docs/skills.md`).
 
 ### Key Architecture Patterns
 Core design principles (see `docs/adr/001-tech-stack.md` for details):
@@ -102,7 +102,7 @@ make test-e2e         # Run e2e tests (requires running APISIX)
 make lint             # Run golangci-lint
 make fmt              # Format code
 make check            # Run all checks (fmt + vet + lint + test)
-make validate-skills  # Validate all SKILL.md files
+make test-skills      # Validate api7/agent-skills examples against the CLI (SKILLS_DIR=...)
 make clean            # Remove build artifacts
 make docker-up        # Start local APISIX stack for e2e development
 make docker-down      # Stop local APISIX stack

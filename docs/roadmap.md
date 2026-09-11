@@ -1260,6 +1260,8 @@ Phase 3 adds advanced features including debug tooling, bulk operations, auto-up
 
 Phase 4 adds AI agent skill files (`SKILL.md`) that enable AI coding agents to work effectively with APISIX through the a6 CLI. See `docs/skills.md` for the full skill format specification.
 
+> **Note**: the skills produced in this phase have since moved to the [api7/agent-skills](https://github.com/api7/agent-skills) repository as a single `a6` skill; the file paths below are historical. See `docs/skills.md` for the current setup.
+
 ### PR-28: Skills Infrastructure + Shared Skill
 
 **Goal**: Establish the skills directory structure, CI validation, and the first shared skill.
