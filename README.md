@@ -2,7 +2,7 @@
 
 `a6` is a command-line tool for managing [Apache APISIX](https://apisix.apache.org/) from your terminal. It wraps the APISIX Admin API to provide convenient, scriptable access to routes, upstreams, services, consumers, SSL certificates, plugins, and more.
 
-Built with an **AI-first development approach** — the codebase includes structured documentation and AI agent skills that enable autonomous development by coding agents.
+Built with an **AI-first development approach** — the codebase includes structured documentation for coding agents, and a companion [AI agent skill](#ai-agent-skills) teaches those agents how to operate APISIX with `a6`.
 
 ## Features
 
@@ -17,7 +17,7 @@ Built with an **AI-first development approach** — the codebase includes struct
 - **Shell completions** — Bash, Zsh, Fish, PowerShell (`a6 completion`)
 - **Self-update** — Update the CLI binary to the latest version (`a6 update`)
 - **Export** — Export resource configurations to standalone YAML or JSON (`a6 route export`, `a6 upstream export --label env=prod`)
-- **AI agent skills** — 40 built-in [SKILL.md files](skills/) for AI coding agents to work effectively with APISIX
+- **AI agent skill** — an [`a6` skill](https://skills.sh/api7/agent-skills/a6) that teaches AI coding agents to configure APISIX through this CLI (`npx skills add api7/agent-skills --skill a6`)
 
 ## Installation
 
@@ -174,7 +174,20 @@ docker compose -f test/e2e/docker-compose.yml down
 
 ## AI Agent Skills
 
-The `skills/` directory contains structured knowledge files (`SKILL.md`) that enable AI coding agents to configure APISIX through the a6 CLI. Skills are compatible with 39+ AI coding tools including Claude Code, OpenCode, Cursor, GitHub Copilot, and Windsurf.
+The `a6` agent skill teaches AI coding agents (Claude Code, Cursor, Codex, GitHub Copilot, Windsurf, OpenCode and 70+ others) how to configure APISIX through the a6 CLI. The skill content lives in the [api7/agent-skills](https://github.com/api7/agent-skills) repository and is published at [skills.sh/api7/agent-skills/a6](https://skills.sh/api7/agent-skills/a6).
+
+```bash
+# install into the current project (add -g for a global install, -a <agent> to pick an agent)
+npx skills add api7/agent-skills --skill a6
+```
+
+Without Node.js, `install.sh` in this repository copies the skill into `~/.claude/skills/a6` (or `--dir <path>`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/api7/a6/main/install.sh | sh
+```
+
+One skill covers everything; the agent reads the detailed reference for a topic only when a task needs it:
 
 | Category | Count | Examples |
 |----------|-------|---------|
@@ -189,7 +202,7 @@ The `skills/` directory contains structured knowledge files (`SKILL.md`) that en
 | **Advanced Recipes** | 3 | multi-tenant, api-versioning, graphql-proxy |
 | **Personas** | 2 | operator, developer |
 
-See [docs/skills.md](docs/skills.md) for the full skill format specification, taxonomy, and authoring guide.
+Skill content changes go to [api7/agent-skills](https://github.com/api7/agent-skills); this repository's CI (`make test-skills`) validates the shell examples against the current CLI. See [docs/skills.md](docs/skills.md) for details.
 
 ## Documentation
 

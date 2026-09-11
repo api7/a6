@@ -5,7 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-
+  schedule:
+    - cron: "17 4 * * *" # daily: catch drift between this CLI and api7/agent-skills
 permissions:
   contents: read
 
@@ -55,8 +56,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate SKILL.md files
-        run: ./scripts/validate-skills.sh
+      - name: Check out api7/agent-skills
+        uses: actions/checkout@v4
+        with:
+          repository: api7/agent-skills
+          path: agent-skills
 
       - uses: actions/setup-go@v5
         with:
@@ -64,3 +68,5 @@ jobs:
 
       - name: Test skill examples
         run: make test-skills
+        env:
+          SKILLS_DIR: ${{ github.workspace }}/agent-skills/skills/a6

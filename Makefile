@@ -1,4 +1,4 @@
-.PHONY: build test lint clean install help test-e2e docker-up docker-down validate-skills test-skills check
+.PHONY: build test lint clean install help test-e2e docker-up docker-down test-skills check
 
 # Build variables
 BINARY_NAME := a6
@@ -77,13 +77,12 @@ docker-up:
 docker-down:
 	docker compose -f test/e2e/docker-compose.yml down -v
 
-## validate-skills: Validate all SKILL.md files in skills/
-validate-skills:
-	./scripts/validate-skills.sh
+# a6 skill directory in a checkout of api7/agent-skills (see docs/skills.md)
+SKILLS_DIR ?= $(CURDIR)/../agent-skills/skills/a6
 
-## test-skills: Validate commands and flags used in skill shell examples
+## test-skills: Validate a6 commands and flags used in the api7/agent-skills examples
 test-skills:
-	go test ./test/skills -count=1
+	SKILLS_DIR="$(SKILLS_DIR)" go test ./test/skills -count=1
 
 ## check: Run all checks (fmt, vet, lint, test)
-check: fmt vet lint test validate-skills test-skills
+check: fmt vet lint test test-skills

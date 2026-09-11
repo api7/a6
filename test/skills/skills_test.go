@@ -2,6 +2,7 @@ package skills
 
 import (
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
@@ -42,6 +43,55 @@ func locateRepoRoot() (string, error) {
 	}
 }
 
+// skillsDirectory returns the a6 skill directory in a checkout of
+// api7/agent-skills: $SKILLS_DIR when set, otherwise ../agent-skills/skills/a6
+// next to this repository. The test is skipped when the default checkout is
+// missing; an explicitly configured SKILLS_DIR must exist.
+func skillsDirectory(t *testing.T, root string) string {
+	t.Helper()
+	var dir string = os.Getenv("SKILLS_DIR")
+	var explicit bool = dir != ""
+	if !explicit {
+		dir = filepath.Join(root, "..", "agent-skills", "skills", "a6")
+	}
+	var info os.FileInfo
+	var err error
+	info, err = os.Stat(dir)
+	if err == nil && info.IsDir() {
+		return dir
+	}
+	if explicit {
+		t.Fatalf("SKILLS_DIR %q is not a directory: point it at the skills/a6 directory of an api7/agent-skills checkout", dir)
+	}
+	t.Skipf("skills directory %q not found: clone https://github.com/api7/agent-skills next to this repository or set SKILLS_DIR to its skills/a6 directory", dir)
+	return ""
+}
+
+// skillFiles returns SKILL.md plus every Markdown file below references/.
+func skillFiles(t *testing.T, dir string) []string {
+	t.Helper()
+	var skill string = filepath.Join(dir, "SKILL.md")
+	var err error
+	_, err = os.Stat(skill)
+	if err != nil {
+		t.Fatalf("%s: %v", skill, err)
+	}
+	var files []string = []string{skill}
+	err = filepath.WalkDir(filepath.Join(dir, "references"), func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".md") {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return files
+}
+
 func buildA6Binary(t *testing.T, root string) string {
 	t.Helper()
 	var binary string = filepath.Join(t.TempDir(), "a6")
@@ -65,13 +115,11 @@ func TestSkillCommandsUseSupportedA6CommandsAndFlags(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to locate repository root: %v", err)
 	}
+	skillsDir := skillsDirectory(t, root)
 	binary := buildA6Binary(t, root)
 	commandTree := newA6CommandTree(t)
 	rootFlags, valueFlags := rootFlagSets(commandTree)
-	matches, err := filepath.Glob(filepath.Join(root, "skills", "*", "SKILL.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	matches := skillFiles(t, skillsDir)
 	if len(matches) == 0 {
 		t.Fatal("expected at least one skill file")
 	}
